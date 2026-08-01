@@ -1,0 +1,3225 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smarter Habits, Voice Productivity</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+      }
+      .hidden {
+        display: none !important;
+      }
+      @keyframes pulse-soft {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.8;
+          transform: scale(0.98);
+        }
+      }
+      .animate-record {
+        animation: pulse-soft 1.5s infinite ease-in-out;
+      }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      /* Drag & Drop Styles */
+      .draggable-session {
+        transition:
+          transform 0.2s ease,
+          opacity 0.2s ease,
+          border-color 0.2s ease;
+        touch-action: none;
+        user-select: none;
+      }
+      .draggable-session.dragging {
+        opacity: 0.3;
+        transform: scale(0.95);
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+      }
+      .draggable-session.drag-over {
+        border-color: #2563eb !important;
+        background: #eff6ff !important;
+        box-shadow: 0 0 0 2px #2563eb inset !important;
+      }
+      .draggable-session.drag-over-before {
+        border-top: 3px solid #2563eb !important;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+      }
+      .draggable-session.drag-over-after {
+        border-bottom: 3px solid #2563eb !important;
+        border-bottom-left-radius: 8px;
+        border-bottom-right-radius: 8px;
+      }
+      /* Blue line indicator (alternative method using pseudo-elements) */
+      .drag-over-before::before,
+      .drag-over-after::after {
+        content: "";
+        display: block;
+        height: 3px;
+        background: #2563eb;
+        border-radius: 2px;
+        margin: -2px 0 2px 0;
+        box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+        transition: height 0.15s ease;
+      }
+      .drag-over-before::before {
+        margin-top: -2px;
+        margin-bottom: 4px;
+      }
+      .drag-over-after::after {
+        margin-top: 4px;
+        margin-bottom: -2px;
+      }
+
+      /* Timer digits */
+      .timer-digits {
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.02em;
+      }
+
+      /* speed btn active */
+      .speed-btn.active {
+        background: #2563eb !important;
+        color: #fff !important;
+        border-color: #2563eb !important;
+      }
+      .speed-btn {
+        transition: all 0.15s ease;
+      }
+
+      /* modal backdrop */
+      .modal-overlay {
+        backdrop-filter: blur(4px);
+      }
+
+      /* notification badge pulse */
+      @keyframes notif-pulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.05);
+        }
+      }
+      .notif-pulse {
+        animation: notif-pulse 0.4s ease 3;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 pb-20">
+    <!-- TOP HEADER -->
+    <header
+      class="sticky top-0 z-40 bg-slate-900 text-white px-5 py-4 shadow-lg flex justify-between items-center"
+    >
+      <div class="flex items-center gap-3">
+        <!-- ইমেজ লোগো -->
+        <img
+          src="./App logo.png"
+          alt="Logo"
+          class="h-10 w-10 rounded-lg object-cover"
+        />
+        <div class="flex flex-col">
+          <div class="text-lg font-bold flex items-center gap-2 tracking-tight">
+            Smarter Habits
+          </div>
+          <div class="text-xs text-slate-400 mt-0.5">
+            Speak → Reflect → Achieve
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="max-w-3xl mx-auto mt-6 px-4">
+      <!-- BANNERS -->
+      <div
+        id="audio-cleanup-banner"
+        class="hidden bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+      >
+        <div>
+          <div class="text-sm font-bold text-amber-900 flex items-center gap-2">
+            🎙️ Audio Cleanup Reminder
+          </div>
+          <div class="text-xs text-amber-800 mt-1">
+            You have old audio recordings. Export backup before clearing to save
+            space?
+          </div>
+        </div>
+        <div class="flex gap-2 shrink-0">
+          <button
+            class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors"
+            onclick="exportDataJSON()"
+          >
+            Export JSON
+          </button>
+          <button
+            class="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors"
+            onclick="confirmCleanOldAudio()"
+          >
+            Clean Audio
+          </button>
+          <button
+            class="bg-amber-200 hover:bg-amber-300 text-amber-900 text-xs font-semibold py-2 px-3 rounded-lg transition-colors"
+            onclick="dismissCleanupBanner()"
+          >
+            Dismiss
+          </button>
+        </div>
+      </div>
+
+      <div
+        id="inactivity-reminder-banner"
+        class="hidden bg-sky-50 border border-sky-200 rounded-xl p-4 mb-4 shadow-sm flex items-center justify-between gap-3"
+      >
+        <div>
+          <div class="text-sm font-bold text-sky-900">
+            ⚡ Productivity Reminder
+          </div>
+          <div class="text-xs text-sky-800 mt-1" id="inactivity-banner-text">
+            You haven't executed a session recently. Ready to achieve your
+            goals?
+          </div>
+        </div>
+        <button
+          class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-2 px-4 rounded-lg shrink-0 transition-colors"
+          onclick="dismissInactivityBanner()"
+        >
+          Got It!
+        </button>
+      </div>
+
+      <!-- NAV TABS -->
+      <div
+        class="flex gap-2 bg-slate-200/70 p-1.5 rounded-xl mb-6 overflow-x-auto no-scrollbar"
+        id="main-nav"
+      >
+        <button
+          id="btn-tab-todo"
+          class="nav-btn flex-1 py-2 px-3 text-sm font-semibold rounded-lg text-slate-500 whitespace-nowrap transition-all duration-200 bg-white text-blue-600 shadow-sm"
+          onclick="switchTab('todo')"
+        >
+          📅 To-Do
+        </button>
+        <button
+          id="btn-tab-action"
+          class="nav-btn flex-1 py-2 px-3 text-sm font-semibold rounded-lg text-slate-500 whitespace-nowrap transition-all duration-200 hover:text-slate-700"
+          onclick="switchTab('action')"
+        >
+          ⚡ Actions
+        </button>
+        <button
+          id="btn-tab-history"
+          class="nav-btn flex-1 py-2 px-3 text-sm font-semibold rounded-lg text-slate-500 whitespace-nowrap transition-all duration-200 hover:text-slate-700"
+          onclick="switchTab('history')"
+        >
+          📜 History
+        </button>
+        <button
+          id="btn-tab-analytics"
+          class="nav-btn flex-1 py-2 px-3 text-sm font-semibold rounded-lg text-slate-500 whitespace-nowrap transition-all duration-200 hover:text-slate-700"
+          onclick="switchTab('analytics')"
+        >
+          📊 Analytics
+        </button>
+        <button
+          id="btn-tab-settings"
+          class="nav-btn flex-1 py-2 px-3 text-sm font-semibold rounded-lg text-slate-500 whitespace-nowrap transition-all duration-200 hover:text-slate-700"
+          onclick="switchTab('settings')"
+        >
+          ⚙️ Settings
+        </button>
+      </div>
+
+      <!-- 1. TO-DO TAB -->
+      <div id="tab-todo">
+        <div
+          class="bg-sky-50 border border-sky-100 rounded-2xl p-5 mb-5 shadow-sm"
+        >
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-sm font-bold text-sky-900">
+              📊 Today's Summary Dashboard
+            </h2>
+            <button
+              class="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-md text-xs font-bold transition-colors"
+              onclick="resetTodayProgress()"
+            >
+              🔄 Reset Today
+            </button>
+          </div>
+          <div class="grid grid-cols-3 divide-x divide-sky-200 text-center">
+            <div class="px-2">
+              <div
+                class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide"
+              >
+                🎯 Target Time
+              </div>
+              <div
+                class="text-xl font-extrabold text-blue-600 mt-1"
+                id="summary-target-time"
+              >
+                0m
+              </div>
+            </div>
+            <div class="px-2">
+              <div
+                class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide"
+              >
+                ⏱️ Actual Spent
+              </div>
+              <div
+                class="text-xl font-extrabold text-emerald-600 mt-1"
+                id="summary-actual-time"
+              >
+                0m
+              </div>
+            </div>
+            <div class="px-2">
+              <div
+                class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide"
+              >
+                ☕ Total Break
+              </div>
+              <div
+                class="text-xl font-extrabold text-amber-600 mt-1"
+                id="summary-break-time"
+              >
+                0m
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="font-bold text-slate-800">Pending Sessions</h2>
+          <button
+            class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-semibold shadow-sm transition-colors flex items-center gap-1"
+            onclick="openCreateModal('session')"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2.5"
+                d="M12 4v16m8-8H4"
+              ></path>
+            </svg>
+            Create Session
+          </button>
+        </div>
+
+        <div id="todo-list-container" class="space-y-3"></div>
+      </div>
+
+      <!-- 2. ACTION LIST TAB -->
+      <div id="tab-action" class="hidden">
+        <div class="flex justify-between items-center mb-5">
+          <h2 class="font-bold text-slate-800">Action Templates</h2>
+          <button
+            class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-semibold shadow-sm transition-colors flex items-center gap-1"
+            onclick="openCreateModal('action')"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2.5"
+                d="M12 4v16m8-8H4"
+              ></path>
+            </svg>
+            Create Action
+          </button>
+        </div>
+        <div id="action-list-container" class="space-y-3"></div>
+      </div>
+
+      <!-- 3. PRE-WORK (step-start) -->
+      <div id="step-start" class="hidden">
+        <div class="mb-4">
+          <button
+            class="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-colors inline-flex items-center gap-2"
+            onclick="goHome()"
+          >
+            ← Back to To-Do
+          </button>
+        </div>
+        <h2 id="exec-task-title" class="text-xl font-bold text-slate-900 mb-4">
+          Pre-Work Preparation
+        </h2>
+
+        <div
+          id="prework-streak-badge"
+          class="hidden bg-orange-50 border border-orange-100 rounded-xl p-4 mb-4 flex justify-between items-center shadow-sm"
+        >
+          <div class="text-sm font-bold text-orange-800">
+            🔥 Habit Regularity Streak
+          </div>
+          <div
+            id="prework-streak-value"
+            class="bg-white border border-orange-200 text-orange-600 px-3 py-1 rounded-md text-sm font-bold shadow-sm"
+          >
+            0 Days
+          </div>
+        </div>
+
+        <div
+          class="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center mb-5"
+        >
+          <p class="text-sm font-bold text-slate-700 mb-3">
+            Pre-Work Voice Note (Min 1 Second):
+          </p>
+          <div
+            class="bg-slate-50 border-l-4 border-blue-500 text-left p-4 rounded-r-lg mb-4 text-sm text-slate-700 leading-relaxed shadow-sm"
+          >
+            ১. এখন কী কাজ করবেন?<br />
+            ২. এই কাজের লং টার্ম গোল কি?<br />
+            ৩. আপনার চ্যালেঞ্জ কী?
+          </div>
+          <button
+            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full shadow-md transition-colors w-full sm:w-auto inline-flex items-center justify-center gap-2"
+            id="rec-btn-start"
+            onclick="toggleRecording('start')"
+          >
+            🎙️ Start Recording
+          </button>
+          <div
+            id="wrapper-start-audio"
+            class="hidden mt-4 bg-white border border-slate-200 rounded-xl p-3 shadow-sm max-w-sm mx-auto"
+          >
+            <audio
+              id="audio-preview-start"
+              controls
+              class="w-full h-10 rounded mb-2"
+            ></audio>
+            <div
+              class="flex items-center justify-center gap-1 mb-3"
+              id="speed-group-start"
+            >
+              <span
+                class="text-[10px] text-slate-500 mr-2 font-semibold uppercase"
+                >Speed:</span
+              >
+              <button
+                class="speed-btn active bg-blue-600 text-white border-blue-600 px-2 py-1 text-[11px] font-bold rounded"
+                onclick="setAudioSpeed('audio-preview-start', 1.0, this)"
+              >
+                1.0x
+              </button>
+              <button
+                class="speed-btn bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 px-2 py-1 text-[11px] font-bold rounded transition-colors"
+                onclick="setAudioSpeed('audio-preview-start', 1.25, this)"
+              >
+                1.25x
+              </button>
+              <button
+                class="speed-btn bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 px-2 py-1 text-[11px] font-bold rounded transition-colors"
+                onclick="setAudioSpeed('audio-preview-start', 1.5, this)"
+              >
+                1.5x
+              </button>
+              <button
+                class="speed-btn bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 px-2 py-1 text-[11px] font-bold rounded transition-colors"
+                onclick="setAudioSpeed('audio-preview-start', 2.0, this)"
+              >
+                2.0x
+              </button>
+            </div>
+            <button
+              class="w-full bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 py-1.5 rounded-lg text-xs font-bold transition-colors"
+              onclick="deleteStartAudio()"
+            >
+              🗑️ Delete Recording
+            </button>
+          </div>
+        </div>
+
+        <button
+          id="btn-start-work"
+          class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 text-white font-bold py-4 rounded-xl shadow-md transition-colors text-lg"
+          disabled
+          onclick="startWorkTimer()"
+        >
+          Start Work Session 🚀
+        </button>
+      </div>
+
+      <!-- 4. WORK TIMER (step-timer) -->
+      <div id="step-timer" class="hidden">
+        <div class="mb-4">
+          <button
+            class="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-colors inline-flex items-center gap-2"
+            onclick="holdSessionAndSwitch()"
+          >
+            ← Pause & Return Home
+          </button>
+        </div>
+        <div
+          class="bg-white border border-slate-200 rounded-2xl p-8 text-center shadow-sm"
+        >
+          <h2
+            id="active-task-title"
+            class="text-xl font-bold text-slate-800 mb-6"
+          >
+            Work Session Running...
+          </h2>
+          <div
+            class="font-mono text-6xl md:text-7xl font-black text-slate-900 tracking-tighter mb-8 timer-digits"
+            id="work-timer-display"
+          >
+            00:00
+          </div>
+          <div class="flex flex-col sm:flex-row gap-3 mb-6">
+            <button
+              class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-4 rounded-xl shadow-sm transition-colors text-base"
+              id="btn-mid-pause"
+              onclick="toggleTimerPause()"
+            >
+              ⏸️ Pause
+            </button>
+            <button
+              class="flex-1 bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 px-4 rounded-xl shadow-sm transition-colors text-base"
+              onclick="holdSessionAndSwitch()"
+            >
+              ⏸️ Hold & Back
+            </button>
+          </div>
+          <button
+            class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl shadow-md transition-colors text-lg"
+            onclick="completeWorkSession()"
+          >
+            Complete Session ✅
+          </button>
+        </div>
+      </div>
+
+      <!-- 5. REFLECTION (step-reflection) -->
+      <div id="step-reflection" class="hidden">
+        <div class="mb-4">
+          <button
+            class="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-colors inline-flex items-center gap-2"
+            onclick="goHome()"
+          >
+            ← Return Home
+          </button>
+        </div>
+        <h2 class="text-xl font-bold text-slate-900 mb-4">
+          Session Reflection & Break
+        </h2>
+        <div
+          class="bg-yellow-50 border border-yellow-200 rounded-2xl p-5 text-center mb-5 shadow-sm"
+        >
+          <p
+            class="text-xs font-bold text-yellow-800 uppercase tracking-wider mb-2"
+          >
+            ☕ Live Post-Session Break
+          </p>
+          <div
+            class="font-mono text-4xl font-black text-amber-600 tracking-tight timer-digits"
+            id="live-break-timer-display"
+          >
+            00:00
+          </div>
+        </div>
+        <div
+          class="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center mb-5"
+        >
+          <p class="text-sm font-bold text-slate-700 mb-3">
+            Record Session Reflection (Min 1 Second):
+          </p>
+          <div
+            class="bg-slate-50 border-l-4 border-emerald-500 text-left p-4 rounded-r-lg mb-4 text-sm text-slate-700 leading-relaxed shadow-sm"
+          >
+            ১. আজ কাজ শেষে নিজের কোন গুণটা দেখে গর্ব হচ্ছে?<br />
+            ২. এই কাজটা আজ আমাকে স্বপ্নের কতটা কাছে নিল?<br />
+            ৩. সেশনের কোন ৩টি মিনিট সবচেয়ে দারুণ কেটেছে?
+          </div>
+          <button
+            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full shadow-md transition-colors w-full sm:w-auto inline-flex items-center justify-center gap-2"
+            id="rec-btn-ref"
+            onclick="toggleRecording('reflection')"
+          >
+            🎙️ Record Reflection
+          </button>
+          <div
+            id="wrapper-ref-audio"
+            class="hidden mt-4 bg-white border border-slate-200 rounded-xl p-3 shadow-sm max-w-sm mx-auto"
+          >
+            <audio
+              id="audio-preview-ref"
+              controls
+              class="w-full h-10 rounded mb-2"
+            ></audio>
+            <div
+              class="flex items-center justify-center gap-1 mb-3"
+              id="speed-group-ref"
+            >
+              <span
+                class="text-[10px] text-slate-500 mr-2 font-semibold uppercase"
+                >Speed:</span
+              >
+              <button
+                class="speed-btn active bg-blue-600 text-white border-blue-600 px-2 py-1 text-[11px] font-bold rounded"
+                onclick="setAudioSpeed('audio-preview-ref', 1.0, this)"
+              >
+                1.0x
+              </button>
+              <button
+                class="speed-btn bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 px-2 py-1 text-[11px] font-bold rounded transition-colors"
+                onclick="setAudioSpeed('audio-preview-ref', 1.25, this)"
+              >
+                1.25x
+              </button>
+              <button
+                class="speed-btn bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 px-2 py-1 text-[11px] font-bold rounded transition-colors"
+                onclick="setAudioSpeed('audio-preview-ref', 1.5, this)"
+              >
+                1.5x
+              </button>
+              <button
+                class="speed-btn bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 px-2 py-1 text-[11px] font-bold rounded transition-colors"
+                onclick="setAudioSpeed('audio-preview-ref', 2.0, this)"
+              >
+                2.0x
+              </button>
+            </div>
+            <button
+              class="w-full bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 py-1.5 rounded-lg text-xs font-bold transition-colors"
+              onclick="deleteReflectionAudio()"
+            >
+              🗑️ Delete Reflection
+            </button>
+          </div>
+        </div>
+        <button
+          id="btn-finish-session"
+          class="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 text-white font-bold py-4 rounded-xl shadow-md transition-colors text-lg"
+          disabled
+          onclick="finishSessionProcess()"
+        >
+          Save & Finish Session 💾
+        </button>
+      </div>
+
+      <!-- 6. DONE (step-break) -->
+      <div id="step-break" class="hidden">
+        <div class="mb-4">
+          <button
+            class="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-colors"
+            onclick="goHome()"
+          >
+            🏠 Home
+          </button>
+        </div>
+        <div
+          class="bg-white border border-slate-200 rounded-2xl p-8 text-center shadow-sm"
+        >
+          <h2 class="text-2xl font-black text-slate-900 mb-2">
+            🎉 Successfully Completed!
+          </h2>
+          <p class="text-sm text-slate-500">
+            Total Break Recorded:
+            <b id="final-session-break-display" class="text-slate-800">0m 0s</b>
+          </p>
+          <div
+            id="next-session-suggestion"
+            class="hidden mt-8 text-left bg-slate-50 rounded-xl p-4 border border-slate-200"
+          >
+            <p
+              class="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-3"
+            >
+              Suggested Next Session:
+            </p>
+            <div
+              id="next-task-card"
+              class="bg-white rounded-xl shadow-sm border border-slate-200 p-4"
+            ></div>
+          </div>
+          <button
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-md transition-colors text-lg mt-8"
+            onclick="goHome()"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+
+      <!-- 7. HISTORY TAB -->
+      <div id="tab-history" class="hidden">
+        <h2 class="font-bold text-slate-800 mb-4">Completed Sessions Record</h2>
+        <div
+          class="bg-slate-100 border border-slate-200 rounded-2xl p-4 mb-5 shadow-sm"
+        >
+          <div
+            class="text-xs font-bold text-slate-700 mb-3 uppercase tracking-wider"
+          >
+            🔍 Filter History:
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-500 mb-1"
+                >📅 Date</label
+              >
+              <input
+                type="date"
+                id="history-filter-date"
+                class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:border-blue-500 outline-none bg-white"
+                onchange="renderHistoryList()"
+              />
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-500 mb-1"
+                >🏷️ Type</label
+              >
+              <select
+                id="history-filter-type"
+                class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:border-blue-500 outline-none bg-white"
+                onchange="renderHistoryList()"
+              >
+                <option value="ALL">All Sessions</option>
+                <option value="direct_session">Direct Session</option>
+                <option value="action_session">Action Session</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-500 mb-1"
+                >⚡ Action</label
+              >
+              <select
+                id="history-filter-action"
+                class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:border-blue-500 outline-none bg-white"
+                onchange="renderHistoryList()"
+              >
+                <option value="ALL">All Actions</option>
+              </select>
+            </div>
+          </div>
+          <button
+            class="mt-3 bg-amber-100 text-amber-800 hover:bg-amber-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+            onclick="resetHistoryFilters()"
+          >
+            🔄 Reset Filters
+          </button>
+        </div>
+        <div id="history-container" class="space-y-3"></div>
+      </div>
+
+      <!-- 8. ANALYTICS TAB -->
+      <div id="tab-analytics" class="hidden">
+        <h2 class="font-bold text-slate-800 mb-4">Action & Habit Analytics</h2>
+        <label class="block text-xs font-bold text-slate-700 mb-2"
+          >Filter by Action:</label
+        >
+        <select
+          id="analytics-action-filter"
+          class="w-full p-3 border border-slate-300 rounded-xl text-sm focus:border-blue-500 outline-none bg-white mb-5"
+          onchange="renderAnalytics()"
+        >
+          <option value="ALL">All Actions Combined</option>
+        </select>
+        <div
+          class="bg-orange-50 border border-orange-100 rounded-2xl p-5 mb-5 flex justify-between items-center shadow-sm"
+        >
+          <div>
+            <div class="text-sm font-bold text-orange-900">
+              Habit Regularity Streak
+            </div>
+            <div class="text-[11px] font-medium text-orange-700 mt-0.5">
+              Missing an action applies a 3-day penalty.
+            </div>
+          </div>
+          <div
+            class="text-3xl font-black text-orange-600"
+            id="streak-count-display"
+          >
+            0 Days
+          </div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+          <div class="flex justify-between items-center mb-4">
+            <button
+              class="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600 transition-colors"
+              onclick="changeCalMonth(-1)"
+            >
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15 19l-7-7 7-7"
+                ></path>
+              </svg>
+            </button>
+            <h2
+              id="calendar-month-title"
+              class="font-bold text-slate-800 m-0 text-center text-sm"
+            >
+              Current Month
+            </h2>
+            <button
+              class="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600 transition-colors"
+              onclick="changeCalMonth(1)"
+            >
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 5l7 7-7 7"
+                ></path>
+              </svg>
+            </button>
+          </div>
+          <div
+            class="grid grid-cols-7 gap-1 text-center mt-3"
+            id="calendar-grid-container"
+          ></div>
+        </div>
+      </div>
+
+      <!-- 9. SETTINGS TAB -->
+      <div id="tab-settings" class="hidden space-y-5">
+        <h2 class="font-bold text-slate-800 mb-2">⚙️ App Settings & Data</h2>
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+          <h2 class="text-sm font-bold text-slate-800 mb-1">
+            💾 Data Backup & Recovery
+          </h2>
+          <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+            Export actions, habits, and history into a JSON backup or restore.
+          </p>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <button
+              class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
+              onclick="exportDataJSON()"
+            >
+              📥 Export JSON
+            </button>
+            <button
+              class="flex-1 bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
+              onclick="triggerImportJSON()"
+            >
+              📤 Import JSON
+            </button>
+            <input
+              type="file"
+              id="import-json-file"
+              accept=".json"
+              class="hidden"
+              onchange="importDataJSON(event)"
+            />
+          </div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+          <h2 class="text-sm font-bold text-slate-800 mb-1">
+            🧹 Storage Cleanup
+          </h2>
+          <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+            Safely clear specific data subsets or reset the entire app.
+          </p>
+          <div class="flex flex-col gap-2">
+            <button
+              class="w-full bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold py-2.5 rounded-xl text-sm transition-colors"
+              onclick="clearAudioDataOnly()"
+            >
+              🎙️ Clear Audio Recordings Only
+            </button>
+            <button
+              class="w-full bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold py-2.5 rounded-xl text-sm transition-colors"
+              onclick="clearHistoryOnly()"
+            >
+              📜 Clear History Records
+            </button>
+            <button
+              class="w-full bg-red-100 hover:bg-red-200 text-red-700 font-semibold py-2.5 rounded-xl text-sm transition-colors mt-2"
+              onclick="clearAllData()"
+            >
+              ⚠️ Reset All App Data
+            </button>
+          </div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+          <h2 class="text-sm font-bold text-slate-800 mb-1">
+            🔔 Inactivity Reminder
+          </h2>
+          <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+            Set interval to be notified if inactive.
+          </p>
+          <label class="block text-xs font-bold text-slate-700 mb-2"
+            >Remind After:</label
+          >
+          <select
+            id="inactivity-interval-select"
+            class="w-full p-3 border border-slate-300 rounded-xl text-sm focus:border-blue-500 outline-none bg-white mb-3"
+            onchange="saveInactivitySetting()"
+          >
+            <option value="0">Off (Disabled)</option>
+            <option value="1">1 Hour</option>
+            <option value="2">2 Hours</option>
+            <option value="4">4 Hours</option>
+            <option value="6">6 Hours</option>
+            <option value="8">8 Hours</option>
+            <option value="12">12 Hours</option>
+          </select>
+          <button
+            class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 px-4 rounded-lg text-xs transition-colors inline-block"
+            onclick="testInactivityNotification()"
+          >
+            🔔 Test Notification
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CUSTOM CONFIRM MODAL -->
+    <div
+      id="custom-modal"
+      class="modal-overlay hidden fixed inset-0 bg-slate-900/60 flex justify-center items-center z-50 p-4 backdrop-blur-sm"
+    >
+      <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+        <h3 id="modal-title" class="text-lg font-bold text-slate-900 mb-2">
+          Confirmation
+        </h3>
+        <p
+          id="modal-message"
+          class="text-sm text-slate-600 mb-6 leading-relaxed"
+        ></p>
+        <div class="flex gap-3">
+          <button
+            id="modal-btn-cancel"
+            class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl text-sm transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            id="modal-btn-confirm"
+            class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CREATE MODAL -->
+    <div
+      id="create-modal"
+      class="modal-overlay hidden fixed inset-0 bg-slate-900/60 flex justify-center items-center z-50 p-4 backdrop-blur-sm"
+    >
+      <div
+        class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar"
+      >
+        <h3
+          id="create-modal-title"
+          class="text-lg font-bold text-slate-900 mb-4"
+        >
+          ⚡ Create Task
+        </h3>
+        <div
+          class="flex gap-1 bg-slate-100 p-1 rounded-xl mb-5"
+          id="modal-type-toggle-group"
+        >
+          <button
+            type="button"
+            id="toggle-type-action"
+            class="flex-1 py-2 px-2 text-xs font-bold rounded-lg bg-white text-blue-600 shadow-sm transition-colors"
+            onclick="switchModalType('action')"
+          >
+            ⚡ Repeating Action
+          </button>
+          <button
+            type="button"
+            id="toggle-type-session"
+            class="flex-1 py-2 px-2 text-xs font-bold rounded-lg text-slate-500 transition-colors"
+            onclick="switchModalType('session')"
+          >
+            📅 One-Off Session
+          </button>
+        </div>
+        <input type="hidden" id="modal-editing-action-id" value="" />
+        <div class="mb-4">
+          <label class="block text-xs font-bold text-slate-700 mb-1"
+            >Name / Title *</label
+          >
+          <input
+            type="text"
+            id="modal-item-name"
+            class="w-full p-3 border border-slate-300 rounded-xl text-sm focus:border-blue-500 outline-none bg-white"
+            placeholder="e.g. Daily Meditation..."
+          />
+          <div
+            id="modal-error-name"
+            class="hidden text-red-600 text-[10px] font-bold mt-1"
+          >
+            Please enter a valid title
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="block text-xs font-bold text-slate-700 mb-1"
+            >Duration (Mins) *</label
+          >
+          <input
+            type="number"
+            id="modal-item-time"
+            value=""
+            min="1"
+            class="w-full p-3 border border-slate-300 rounded-xl text-sm focus:border-blue-500 outline-none bg-white"
+          />
+        </div>
+        <div id="modal-section-action" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-2"
+              >Repeat Days *</label
+            >
+            <div class="flex flex-wrap gap-2" id="modal-action-days-box">
+              <label class="cursor-pointer"
+                ><input type="checkbox" value="6" class="peer hidden" checked />
+                <div
+                  class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-xs font-bold peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 transition-colors"
+                >
+                  Sat
+                </div></label
+              >
+              <label class="cursor-pointer"
+                ><input type="checkbox" value="0" class="peer hidden" checked />
+                <div
+                  class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-xs font-bold peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 transition-colors"
+                >
+                  Sun
+                </div></label
+              >
+              <label class="cursor-pointer"
+                ><input type="checkbox" value="1" class="peer hidden" checked />
+                <div
+                  class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-xs font-bold peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 transition-colors"
+                >
+                  Mon
+                </div></label
+              >
+              <label class="cursor-pointer"
+                ><input type="checkbox" value="2" class="peer hidden" checked />
+                <div
+                  class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-xs font-bold peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 transition-colors"
+                >
+                  Tue
+                </div></label
+              >
+              <label class="cursor-pointer"
+                ><input type="checkbox" value="3" class="peer hidden" checked />
+                <div
+                  class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-xs font-bold peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 transition-colors"
+                >
+                  Wed
+                </div></label
+              >
+              <label class="cursor-pointer"
+                ><input type="checkbox" value="4" class="peer hidden" checked />
+                <div
+                  class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-xs font-bold peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 transition-colors"
+                >
+                  Thu
+                </div></label
+              >
+              <label class="cursor-pointer"
+                ><input type="checkbox" value="5" class="peer hidden" checked />
+                <div
+                  class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-xs font-bold peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 transition-colors"
+                >
+                  Fri
+                </div></label
+              >
+            </div>
+            <div
+              id="modal-error-days"
+              class="hidden text-red-600 text-[10px] font-bold mt-1"
+            >
+              Select at least one day
+            </div>
+          </div>
+          <div class="pt-4 border-t border-slate-200 border-dashed">
+            <label class="block text-xs font-bold text-sky-700 mb-3"
+              >📅 Advanced Schedule:</label
+            >
+            <div class="flex flex-col sm:flex-row gap-4 mb-4">
+              <label
+                class="cursor-pointer flex items-center gap-2 text-sm font-semibold text-emerald-700"
+              >
+                <input
+                  type="radio"
+                  name="schedule-mode"
+                  id="schedule-mode-forever"
+                  value="forever"
+                  checked
+                  onchange="toggleScheduleRangeFields()"
+                  class="accent-emerald-600 w-4 h-4"
+                />
+                ♾️ Repeat Forever
+              </label>
+              <label
+                class="cursor-pointer flex items-center gap-2 text-sm font-semibold text-slate-700"
+              >
+                <input
+                  type="radio"
+                  name="schedule-mode"
+                  id="schedule-mode-range"
+                  value="range"
+                  onchange="toggleScheduleRangeFields()"
+                  class="accent-blue-600 w-4 h-4"
+                />
+                📅 Date Range
+              </label>
+            </div>
+            <div class="grid grid-cols-2 gap-3" id="schedule-range-fields">
+              <div>
+                <label class="block text-[10px] font-bold text-slate-500 mb-1"
+                  >Start (Optional)</label
+                >
+                <input
+                  type="date"
+                  id="modal-action-start-date"
+                  class="w-full p-2 border border-slate-300 rounded-lg text-xs focus:border-blue-500 outline-none bg-white"
+                />
+              </div>
+              <div id="wrapper-action-end-date" class="hidden">
+                <label class="block text-[10px] font-bold text-slate-500 mb-1"
+                  >End Date</label
+                >
+                <input
+                  type="date"
+                  id="modal-action-end-date"
+                  class="w-full p-2 border border-slate-300 rounded-lg text-xs focus:border-blue-500 outline-none bg-white"
+                />
+              </div>
+            </div>
+            <div
+              id="forever-info-badge"
+              class="mt-3 text-[10px] text-emerald-800 bg-emerald-50 p-2.5 rounded-lg border border-emerald-200"
+            >
+              ♾️ এটি আজ থেকে শুরু হয়ে আজীবন নির্বাচনকৃত বারগুলোতে স্বয়ংক্রিয়ভাবে
+              তৈরি হতে থাকবে।
+            </div>
+          </div>
+        </div>
+        <div
+          id="modal-section-session"
+          class="hidden pt-4 border-t border-slate-200 border-dashed mt-4"
+        >
+          <p class="text-xs text-slate-500 leading-relaxed">
+            📅 This direct session is for <strong>today</strong>. It remains
+            pending indefinitely until completed or deleted.
+          </p>
+        </div>
+        <div class="flex gap-3 mt-6">
+          <button
+            class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 rounded-xl text-sm transition-colors"
+            onclick="closeCreateModal()"
+          >
+            Cancel
+          </button>
+          <button
+            class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl text-sm shadow-md transition-colors"
+            id="btn-modal-save"
+            onclick="saveModalItem()"
+          >
+            Save 💾
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- EDIT SESSION MODAL -->
+    <div
+      id="edit-session-modal"
+      class="modal-overlay hidden fixed inset-0 bg-slate-900/60 flex justify-center items-center z-50 p-4 backdrop-blur-sm"
+    >
+      <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+        <h3 class="text-lg font-bold text-slate-900 mb-4">✏️ Edit Session</h3>
+        <input type="hidden" id="edit-session-id" />
+        <div class="mb-4">
+          <label class="block text-xs font-bold text-slate-700 mb-1"
+            >Session Name:</label
+          >
+          <input
+            type="text"
+            id="edit-session-name"
+            class="w-full p-3 border border-slate-300 rounded-xl text-sm focus:border-blue-500 outline-none bg-white"
+          />
+        </div>
+        <div class="mb-6">
+          <label class="block text-xs font-bold text-slate-700 mb-1"
+            >Duration (Mins):</label
+          >
+          <input
+            type="number"
+            id="edit-session-duration"
+            min="1"
+            class="w-full p-3 border border-slate-300 rounded-xl text-sm focus:border-blue-500 outline-none bg-white"
+          />
+        </div>
+        <div class="flex gap-3">
+          <button
+            class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl text-sm transition-colors"
+            onclick="closeEditSessionModal()"
+          >
+            Cancel
+          </button>
+          <button
+            class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
+            onclick="saveEditedSession()"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MOVE SESSION MODAL -->
+    <div
+      id="move-session-modal"
+      class="modal-overlay hidden fixed inset-0 bg-slate-900/60 flex justify-center items-center z-50 p-4 backdrop-blur-sm"
+    >
+      <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+        <h3 class="text-lg font-bold text-slate-900 mb-2">➡️ Move Session</h3>
+        <p class="text-xs text-slate-500 mb-4">
+          Select an available free day in the current week (Saturday to Friday)
+          to move this session.
+        </p>
+        <input type="hidden" id="move-session-id" />
+        <div
+          id="move-date-options"
+          class="max-h-60 overflow-y-auto mb-4 space-y-2"
+        ></div>
+        <div class="flex gap-3">
+          <button
+            class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl text-sm transition-colors"
+            onclick="closeMoveSessionModal()"
+          >
+            Cancel
+          </button>
+          <button
+            id="btn-confirm-move"
+            class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
+            onclick="saveMovedSession()"
+          >
+            Move
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ──────────────────────────────────────────────
+      //  DATABASE & STATE
+      // ──────────────────────────────────────────────
+      const DB_NAME = "SmarterHabitsDB";
+      const DB_VER = 1;
+      let db = null;
+
+      let actionsList = [];
+      let sessionsList = [];
+      let currentSessionId = null;
+
+      // Timers — all timestamp-based
+      let workInterval = null;
+      let workStartTime = 0; // Date.now() when timer started (or resumed)
+      let workElapsedSec = 0; // total elapsed seconds so far
+      let workTargetSec = 0;
+      let workPaused = false;
+      let workPauseStart = 0;
+
+      let breakInterval = null;
+      let breakStartTime = 0;
+      let breakElapsedSec = 0;
+
+      let recStart = null,
+        chunksStart = [];
+      let recRef = null,
+        chunksRef = [];
+
+      let inactivityTimer = null;
+      let currentCalDate = new Date();
+
+      let draggedSessionId = null;
+      let dragSrcEl = null;
+      let dragOverEl = null;
+      let dragOverIndex = -1;
+
+      // Drag & Drop Manager
+      const DragManager = {
+        draggedId: null,
+        sourceElement: null,
+        dropTarget: null,
+        dropPosition: null, // 'before' or 'after'
+
+        reset() {
+          this.draggedId = null;
+          this.sourceElement = null;
+          this.dropTarget = null;
+          this.dropPosition = null;
+          // Remove all visual indicators
+          document
+            .querySelectorAll(
+              ".dragging, .drag-over, .drag-over-before, .drag-over-after",
+            )
+            .forEach((el) => {
+              el.classList.remove(
+                "dragging",
+                "drag-over",
+                "drag-over-before",
+                "drag-over-after",
+              );
+            });
+        },
+      };
+
+      // Consistent date format for today (YYYY-MM-DD)
+      function getTodayDateStr() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      }
+
+      // ──────────────────────────────────────────────
+      //  DRAG & DROP (professional)
+      // ──────────────────────────────────────────────
+      function dragStart(e) {
+        const el = e.currentTarget;
+        const id = parseFloat(el.getAttribute("data-id"));
+        if (isNaN(id)) return;
+
+        DragManager.draggedId = id;
+        DragManager.sourceElement = el;
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", String(id));
+
+        // Add dragging class after a small delay for better visual
+        requestAnimationFrame(() => {
+          el.classList.add("dragging");
+        });
+      }
+
+      function dragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+
+        const target = e.currentTarget;
+        if (target === DragManager.sourceElement) return;
+        if (!target.classList.contains("draggable-session")) return;
+
+        // Calculate position relative to target
+        const rect = target.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        const mid = rect.height / 2;
+
+        // Determine drop position
+        const newPosition = y < mid ? "before" : "after";
+
+        // If position changed, update indicators
+        if (
+          DragManager.dropTarget !== target ||
+          DragManager.dropPosition !== newPosition
+        ) {
+          // Remove all existing indicators
+          document
+            .querySelectorAll(".drag-over, .drag-over-before, .drag-over-after")
+            .forEach((el) => {
+              el.classList.remove(
+                "drag-over",
+                "drag-over-before",
+                "drag-over-after",
+              );
+            });
+
+          DragManager.dropTarget = target;
+          DragManager.dropPosition = newPosition;
+
+          // Add appropriate classes
+          target.classList.add("drag-over");
+          if (newPosition === "before") {
+            target.classList.add("drag-over-before");
+          } else {
+            target.classList.add("drag-over-after");
+          }
+        }
+      }
+
+      function dragLeave(e) {
+        const target = e.currentTarget;
+        // Only remove if we're not entering a child
+        const related = e.relatedTarget;
+        if (related && target.contains(related)) return;
+
+        target.classList.remove(
+          "drag-over",
+          "drag-over-before",
+          "drag-over-after",
+        );
+        if (DragManager.dropTarget === target) {
+          DragManager.dropTarget = null;
+          DragManager.dropPosition = null;
+        }
+      }
+
+      function drop(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const target = e.currentTarget;
+        if (!DragManager.draggedId) return;
+        if (target === DragManager.sourceElement) {
+          DragManager.reset();
+          return;
+        }
+
+        // Get dragged ID from dataTransfer (fallback)
+        let draggedId = DragManager.draggedId;
+        const dataId = e.dataTransfer.getData("text/plain");
+        if (dataId) {
+          const parsed = parseFloat(dataId);
+          if (!isNaN(parsed)) draggedId = parsed;
+        }
+
+        const targetId = parseFloat(target.getAttribute("data-id"));
+        if (isNaN(targetId) || draggedId === targetId) {
+          DragManager.reset();
+          return;
+        }
+
+        // Find indices
+        const draggedIdx = sessionsList.findIndex((s) => s.id === draggedId);
+        const targetIdx = sessionsList.findIndex((s) => s.id === targetId);
+        if (draggedIdx === -1 || targetIdx === -1) {
+          DragManager.reset();
+          return;
+        }
+
+        // Calculate insert position
+        let insertIdx = targetIdx;
+        if (DragManager.dropPosition === "after") {
+          insertIdx = targetIdx + 1;
+        }
+        // Adjust if dragging from above
+        if (draggedIdx < insertIdx) {
+          insertIdx = insertIdx - 1;
+        }
+
+        // Move item in array
+        const [item] = sessionsList.splice(draggedIdx, 1);
+        sessionsList.splice(insertIdx, 0, item);
+
+        // Reset drag state
+        DragManager.reset();
+
+        // Update order and save to DB
+        (async () => {
+          for (let i = 0; i < sessionsList.length; i++) {
+            sessionsList[i].order = i;
+            await dbTx("sessions", "readwrite", (store) =>
+              store.put(sessionsList[i]),
+            );
+          }
+          renderTodoList();
+        })();
+      }
+
+      function dragEnd(e) {
+        DragManager.reset();
+      }
+
+      function dragEnter(e) {
+        e.preventDefault(); // Required for drop to work
+      }
+
+      // ──────────────────────────────────────────────
+      //  INDEXEDDB
+      // ──────────────────────────────────────────────
+      function initDB() {
+        return new Promise((resolve, reject) => {
+          const req = indexedDB.open(DB_NAME, DB_VER);
+          req.onupgradeneeded = (e) => {
+            let idb = e.target.result;
+            if (!idb.objectStoreNames.contains("actions"))
+              idb.createObjectStore("actions", { keyPath: "id" });
+            if (!idb.objectStoreNames.contains("sessions"))
+              idb.createObjectStore("sessions", { keyPath: "id" });
+            if (!idb.objectStoreNames.contains("history"))
+              idb.createObjectStore("history", { keyPath: "id" });
+            if (!idb.objectStoreNames.contains("streaks"))
+              idb.createObjectStore("streaks", { keyPath: "actionId" });
+            if (!idb.objectStoreNames.contains("settings"))
+              idb.createObjectStore("settings", { keyPath: "key" });
+          };
+          req.onsuccess = (e) => {
+            db = e.target.result;
+            resolve();
+          };
+          req.onerror = (e) => reject(e.target.error);
+        });
+      }
+
+      function dbTx(storeName, mode, callback) {
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(storeName, mode);
+          const store = tx.objectStore(storeName);
+          const req = callback(store);
+          if (req) {
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+          } else {
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+          }
+        });
+      }
+
+      async function loadData() {
+        actionsList =
+          (await dbTx("actions", "readonly", (s) => s.getAll())) || [];
+        sessionsList =
+          (await dbTx("sessions", "readonly", (s) => s.getAll())) || [];
+      }
+
+      // ──────────────────────────────────────────────
+      //  NOTIFICATION SOUND (Web Audio)
+      // ──────────────────────────────────────────────
+      function playNotificationSound() {
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const now = ctx.currentTime;
+
+          // three-note chime
+          const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+          notes.forEach((freq, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(freq, now + i * 0.15);
+            gain.gain.setValueAtTime(0.3, now + i * 0.15);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.15 + 0.3);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now + i * 0.15);
+            osc.stop(now + i * 0.15 + 0.3);
+          });
+
+          // also try browser notification
+          if (Notification.permission === "granted") {
+            new Notification("⏰ Session Time Complete!", {
+              body: "Great job! Time to reflect and take a break.",
+              icon: "🔔",
+            });
+          } else if (Notification.permission === "default") {
+            Notification.requestPermission();
+          }
+        } catch (e) {
+          /* silent */
+        }
+      }
+
+      // ──────────────────────────────────────────────
+      //  LOAD & GENERATE SESSIONS
+      // ──────────────────────────────────────────────
+      async function loadActionsAndGenerateSessions() {
+        await loadData();
+        const historyList =
+          (await dbTx("history", "readonly", (s) => s.getAll())) || [];
+        const todayObj = new Date();
+        todayObj.setHours(0, 0, 0, 0);
+        const todayStr = getTodayDateStr();
+        const todayDayIdx = todayObj.getDay();
+
+        // Expire old action sessions
+        for (let i = sessionsList.length - 1; i >= 0; i--) {
+          let s = sessionsList[i];
+          if (!s.completed) {
+            const sDate = new Date(s.dateStr);
+            sDate.setHours(0, 0, 0, 0);
+            if (sDate < todayObj && s.type === "action_session") {
+              const historyRecord = {
+                id: Date.now() + Math.random(),
+                actionId: s.actionId,
+                title: s.title,
+                type: s.type,
+                timestamp: sDate.getTime(),
+                dateStr: s.dateStr,
+                targetMins: s.durationMins,
+                actualMins: 0,
+                breakMins: 0,
+                status: "expired",
+              };
+              await dbTx("history", "readwrite", (store) =>
+                store.put(historyRecord),
+              );
+              await dbTx("sessions", "readwrite", (store) =>
+                store.delete(s.id),
+              );
+              sessionsList.splice(i, 1);
+            }
+          }
+        }
+
+        // Generate new action sessions
+        for (let a of actionsList) {
+          if (a.startDateStr) {
+            const aStart = new Date(a.startDateStr);
+            aStart.setHours(0, 0, 0, 0);
+            if (todayObj < aStart) continue;
+          }
+          if (a.endDateStr) {
+            const aEnd = new Date(a.endDateStr);
+            aEnd.setHours(23, 59, 59, 999);
+            if (todayObj > aEnd) continue;
+          }
+          if (a.days && a.days.includes(todayDayIdx)) {
+            let exists = sessionsList.some(
+              (s) => s.actionId === a.id && s.dateStr === todayStr,
+            );
+            let histExists = historyList.some(
+              (h) => h.actionId === a.id && h.dateStr === todayStr,
+            );
+            if (!exists && !histExists) {
+              let newSess = {
+                id: Date.now() + Math.random(),
+                actionId: a.id,
+                title: a.name,
+                durationMins: a.duration,
+                dateStr: todayStr,
+                completed: false,
+                type: "action_session",
+                createdAt: Date.now(),
+                order: sessionsList.length,
+              };
+              await dbTx("sessions", "readwrite", (s) => s.put(newSess));
+              sessionsList.push(newSess);
+            }
+          }
+        }
+
+        await evaluateHabitStreaks();
+        checkOldAudioCleanup();
+      }
+
+      async function evaluateHabitStreaks() {
+        const historyList =
+          (await dbTx("history", "readonly", (s) => s.getAll())) || [];
+        for (let action of actionsList) {
+          let streak = 0;
+          const actionHistory = historyList
+            .filter((h) => h.actionId === action.id)
+            .sort((a, b) => a.timestamp - b.timestamp);
+          for (let h of actionHistory) {
+            if (h.status === "expired") {
+              streak = Math.max(0, streak - 3);
+            } else if (h.actualMins > 0 || h.status === "completed") {
+              streak += 1;
+            }
+          }
+          await dbTx("streaks", "readwrite", (s) =>
+            s.put({ actionId: action.id, streakCount: streak }),
+          );
+        }
+      }
+
+      async function checkOldAudioCleanup() {
+        const historyList =
+          (await dbTx("history", "readonly", (s) => s.getAll())) || [];
+        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        let hasOld = historyList.some(
+          (h) =>
+            h.timestamp < thirtyDaysAgo && (h.startAudio || h.reflectionAudio),
+        );
+        if (hasOld)
+          document
+            .getElementById("audio-cleanup-banner")
+            .classList.remove("hidden");
+      }
+
+      // ──────────────────────────────────────────────
+      //  RENDER: TODO LIST
+      // ──────────────────────────────────────────────
+      async function renderTodoList() {
+        await loadData();
+        const todayStr = getTodayDateStr();
+        const container = document.getElementById("todo-list-container");
+        container.innerHTML = "";
+
+        const streaksStore =
+          (await dbTx("streaks", "readonly", (s) => s.getAll())) || [];
+        const historyList =
+          (await dbTx("history", "readonly", (s) => s.getAll())) || [];
+
+        let active = sessionsList.filter((s) => {
+          if (s.completed) return false;
+          if (s.type === "direct_session") return true;
+          return s.dateStr === todayStr;
+        });
+        active.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        // ── Today's Summary: pending + history ──
+        let tTarget = 0,
+          tSpent = 0,
+          tBreak = 0;
+
+        // Pending sessions (today)
+        active.forEach((s) => {
+          tTarget += parseInt(s.durationMins) || 0;
+          tSpent += Math.floor((s.actualSec || 0) / 60);
+          tBreak += Math.floor((s.breakSec || 0) / 60);
+        });
+
+        // History sessions (today)
+        const todayHistory = historyList.filter((h) => h.dateStr === todayStr);
+        todayHistory.forEach((h) => {
+          tTarget += parseInt(h.targetMins) || 0;
+          tSpent += parseInt(h.actualMins) || 0;
+          tBreak += parseInt(h.breakMins) || 0;
+        });
+
+        document.getElementById("summary-target-time").innerText =
+          tTarget + "m";
+        document.getElementById("summary-actual-time").innerText = tSpent + "m";
+        document.getElementById("summary-break-time").innerText = tBreak + "m";
+
+        if (active.length === 0) {
+          container.innerHTML =
+            '<div class="text-center py-10 bg-white border border-slate-200 rounded-xl text-slate-500 shadow-sm">No pending tasks! Enjoy your day 🎉</div>';
+          return;
+        }
+
+        active.forEach((s) => {
+          let stCount = 0;
+          if (s.type === "action_session") {
+            let f = streaksStore.find((x) => x.actionId === s.actionId);
+            if (f) stCount = f.streakCount;
+          }
+
+          let btnResume =
+            s.actualSec > 0
+              ? `<button class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-4 py-2 rounded-xl font-bold text-sm transition-colors shadow-sm whitespace-nowrap" onclick="prepareSessionExecution(${s.id})">▶️ Resume</button>`
+              : `<button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-bold text-sm transition-colors shadow-sm whitespace-nowrap" onclick="prepareSessionExecution(${s.id})">Start</button>`;
+
+          let streakBadge =
+            s.type === "action_session"
+              ? `<span class="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-[10px] font-bold border border-orange-200">🔥 ${stCount}</span>`
+              : `<span class="bg-sky-100 text-sky-700 px-2 py-0.5 rounded text-[10px] font-bold border border-sky-200">One-Off</span>`;
+
+          const allowMove = s.type === "action_session";
+
+          container.innerHTML += `
+              <div draggable="true" data-id="${s.id}" class="draggable-session cursor-move bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-center justify-between gap-3 group hover:border-blue-300 transition-colors" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="drop(event)" ondragleave="dragLeave(event)" ondragend="dragEnd(event)">
+                 <div class="cursor-grab text-slate-300 hover:text-slate-500 flex items-center shrink-0">
+                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
+                 </div>
+                 <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                       <span class="font-bold text-slate-800 truncate">${s.title}</span>
+                       ${streakBadge}
+                    </div>
+                    <div class="text-xs text-slate-500 flex items-center gap-2">
+                       <span>🎯 ${s.durationMins}m</span>
+                       ${s.actualSec > 0 ? `<span>⏳ Spent: ${Math.floor(s.actualSec / 60)}m</span>` : ""}
+                       ${s.dateStr !== todayStr ? `<span class="text-amber-600 font-semibold bg-amber-50 px-1.5 rounded">Pending from ${s.dateStr}</span>` : ""}
+                    </div>
+                 </div>
+                 <div class="flex items-center gap-1.5 shrink-0 dropdown-container relative">
+                    ${btnResume}
+                    <button class="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors" onclick="toggleDropdown(event, ${s.id})">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
+                    </button>
+                    <div id="dropdown-${s.id}" class="dropdown-menu hidden absolute right-0 top-full mt-1 w-48 bg-white border border-slate-100 shadow-xl rounded-xl z-50 overflow-hidden py-1">
+                        <button class="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors" onclick="openEditSessionModal(${s.id})">✏️ Edit Details</button>
+                        <button class="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors" onclick="deleteSession(${s.id})">❌ Delete Session</button>
+                        ${allowMove ? `<button class="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors" onclick="openMoveSessionModal(${s.id})">➡️ Move to Another Day</button>` : ""}
+                    </div>
+                 </div>
+              </div>
+            `;
+        });
+      }
+
+      // ──────────────────────────────────────────────
+      //  RENDER: ACTION LIST
+      // ──────────────────────────────────────────────
+      async function renderActionList() {
+        await loadData();
+        const container = document.getElementById("action-list-container");
+        container.innerHTML = "";
+        if (actionsList.length === 0) {
+          container.innerHTML =
+            '<div class="text-center py-10 bg-white border border-slate-200 rounded-xl text-slate-500 text-sm">No repeating actions defined.</div>';
+          return;
+        }
+        const dMap = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        actionsList.forEach((a) => {
+          const daysStr = (a.days || []).map((d) => dMap[d]).join(", ");
+          container.innerHTML += `
+              <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-center justify-between gap-3 group">
+                 <div class="flex-1 min-w-0">
+                    <div class="font-bold text-slate-800 mb-0.5 truncate text-sm">${a.name}</div>
+                    <div class="text-xs text-slate-500">Duration: ${a.duration}m | Days: ${daysStr}</div>
+                 </div>
+                 <div class="flex items-center gap-2 shrink-0">
+                    <button class="bg-amber-50 text-amber-700 hover:bg-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-amber-100" onclick="openEditActionModal(${a.id})">Edit</button>
+                    <button class="bg-red-50 text-red-700 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-red-100" onclick="deleteAction(${a.id})">Delete</button>
+                 </div>
+              </div>
+            `;
+        });
+      }
+
+      // ──────────────────────────────────────────────
+      //  SESSION EXECUTION
+      // ──────────────────────────────────────────────
+      async function prepareSessionExecution(sid) {
+        currentSessionId = sid;
+        let s = sessionsList.find((x) => x.id === sid);
+        if (!s) return;
+
+        // Reload from DB to get latest draft audio
+        await loadData();
+        s = sessionsList.find((x) => x.id === sid);
+        if (!s) return;
+
+        document.getElementById("exec-task-title").innerText =
+          "Prep: " + s.title;
+        document.getElementById("active-task-title").innerText =
+          "Working on: " + s.title;
+
+        // Reset UI
+        document.getElementById("wrapper-start-audio").classList.add("hidden");
+        document.getElementById("wrapper-ref-audio").classList.add("hidden");
+        document.getElementById("audio-preview-start").src = "";
+        document.getElementById("audio-preview-ref").src = "";
+
+        // Streak badge
+        let bdg = document.getElementById("prework-streak-badge");
+        if (s.type === "action_session") {
+          const streaksStore =
+            (await dbTx("streaks", "readonly", (store) => store.getAll())) ||
+            [];
+          let f = streaksStore.find((x) => x.actionId === s.actionId);
+          document.getElementById("prework-streak-value").innerText = f
+            ? f.streakCount + " Days"
+            : "0 Days";
+          bdg.classList.remove("hidden");
+        } else {
+          bdg.classList.add("hidden");
+        }
+
+        // Restore draft audio if exists
+        if (s.startAudioBlob) {
+          const url = URL.createObjectURL(s.startAudioBlob);
+          document.getElementById("audio-preview-start").src = url;
+          document
+            .getElementById("wrapper-start-audio")
+            .classList.remove("hidden");
+          document.getElementById("btn-start-work").disabled = false;
+        } else {
+          document.getElementById("btn-start-work").disabled = true;
+        }
+
+        // If there's already time spent, go directly to timer
+        if (s.actualSec > 0) {
+          startWorkTimer();
+        } else {
+          switchView("step-start");
+        }
+      }
+
+      // ──────────────────────────────────────────────
+      //  WORK TIMER (countdown, timestamp-based)
+      // ──────────────────────────────────────────────
+      function startWorkTimer() {
+        switchView("step-timer");
+        let s = sessionsList.find((x) => x.id === currentSessionId);
+        if (!s) return;
+
+        workTargetSec = s.durationMins * 60;
+        const alreadyElapsed = s.actualSec || 0;
+        workElapsedSec = alreadyElapsed;
+        workPaused = false;
+        document.getElementById("btn-mid-pause").innerText = "⏸️ Pause";
+
+        // যদি ইতিমধ্যেই ডিউরেশন শেষ হয়ে যায়, তাহলে শুধু নোটিফিকেশন দিন
+        if (workElapsedSec >= workTargetSec) {
+          playNotificationSound();
+          // কিন্তু টাইমার চলতে থাকবে
+        }
+
+        // Start from timestamp
+        workStartTime = Date.now() - workElapsedSec * 1000;
+        if (workInterval) clearInterval(workInterval);
+
+        // ★★★ নতুন ইন্টারভাল – কখনো থামবে না ★★★
+        workInterval = setInterval(() => {
+          if (!workPaused) {
+            const now = Date.now();
+            workElapsedSec = (now - workStartTime) / 1000;
+            if (workElapsedSec < 0) workElapsedSec = 0;
+            updateWorkTimerDisplay();
+
+            // ★★★ শুধুমাত্র প্রথমবার ডিউরেশন শেষ হলে নোটিফিকেশন দিন ★★★
+            if (workElapsedSec >= workTargetSec && !window._notified) {
+              window._notified = true;
+              playNotificationSound();
+            }
+          }
+        }, 100);
+      }
+
+      function updateWorkTimerDisplay() {
+        const remaining = workTargetSec - workElapsedSec;
+        const isOver = remaining < 0;
+        const displaySec = Math.abs(remaining);
+        const mins = Math.floor(displaySec / 60);
+        const secs = Math.floor(displaySec % 60);
+        const el = document.getElementById("work-timer-display");
+
+        // ★★★ এক্সট্রা টাইম হলে মাইনাস চিহ্ন দেখান ★★★
+        if (isOver) {
+          el.innerText = `+${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+          el.classList.add("text-red-600", "animate-record");
+        } else {
+          el.innerText = `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+          if (remaining <= 0) {
+            el.classList.add("text-red-600", "animate-record");
+          } else {
+            el.classList.remove("text-red-600", "animate-record");
+          }
+        }
+      }
+
+      function toggleTimerPause() {
+        workPaused = !workPaused;
+        if (workPaused) {
+          // pause: record the time we paused
+          workPauseStart = Date.now();
+          document.getElementById("btn-mid-pause").innerText = "▶️ Resume";
+        } else {
+          // resume: adjust start time
+          const pauseDuration = Date.now() - workPauseStart;
+          workStartTime += pauseDuration;
+          document.getElementById("btn-mid-pause").innerText = "⏸️ Pause";
+        }
+      }
+
+      // ──────────────────────────────────────────────
+      //  HOLD SESSION (save draft audio + time)
+      // ──────────────────────────────────────────────
+      async function holdSessionAndSwitch() {
+        if (workInterval) clearInterval(workInterval);
+        workInterval = null;
+
+        let s = sessionsList.find((x) => x.id === currentSessionId);
+        if (s) {
+          // Save elapsed time
+          s.actualSec = Math.floor(workElapsedSec);
+
+          // Save start audio if present
+          const aSrc = document.getElementById("audio-preview-start").src;
+          if (aSrc && aSrc.startsWith("blob:")) {
+            try {
+              const res = await fetch(aSrc);
+              s.startAudioBlob = await res.blob();
+            } catch (e) {
+              /* ignore */
+            }
+          }
+          await dbTx("sessions", "readwrite", (store) => store.put(s));
+        }
+        goHome();
+      }
+
+      // ──────────────────────────────────────────────
+      //  COMPLETE WORK → REFLECTION
+      // ──────────────────────────────────────────────
+      function completeWorkSession() {
+        if (workInterval) clearInterval(workInterval);
+        workInterval = null;
+
+        let s = sessionsList.find((x) => x.id === currentSessionId);
+        if (s) {
+          s.actualSec = Math.floor(workElapsedSec);
+          // Save audio
+          const aSrc = document.getElementById("audio-preview-start").src;
+          if (aSrc && aSrc.startsWith("blob:")) {
+            fetch(aSrc)
+              .then((res) => res.blob())
+              .then((blob) => {
+                s.startAudioBlob = blob;
+                dbTx("sessions", "readwrite", (store) => store.put(s));
+              })
+              .catch(() => {});
+          }
+        }
+
+        switchView("step-reflection");
+
+        // Break timer — timestamp-based
+        breakElapsedSec = 0;
+        breakStartTime = Date.now();
+        updateLiveBreakDisplay();
+        if (breakInterval) clearInterval(breakInterval);
+        breakInterval = setInterval(() => {
+          const now = Date.now();
+          breakElapsedSec = (now - breakStartTime) / 1000;
+          updateLiveBreakDisplay();
+        }, 100);
+
+        document.getElementById("btn-finish-session").disabled = true;
+      }
+
+      function updateLiveBreakDisplay() {
+        const mins = Math.floor(breakElapsedSec / 60);
+        const secs = Math.floor(breakElapsedSec % 60);
+        document.getElementById("live-break-timer-display").innerText =
+          `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+      }
+
+      // ──────────────────────────────────────────────
+      //  RECORDING (auto-save to IndexedDB)
+      // ──────────────────────────────────────────────
+      async function toggleRecording(type) {
+        const btnId = type === "start" ? "rec-btn-start" : "rec-btn-ref";
+        const btn = document.getElementById(btnId);
+
+        if (btn.classList.contains("recording")) {
+          // Stop
+          btn.classList.remove("recording", "animate-record");
+          btn.innerText =
+            type === "start" ? "🎙️ Start Recording" : "🎙️ Record Reflection";
+
+          if (type === "start" && recStart) recStart.stop();
+          if (type === "reflection" && recRef) recRef.stop();
+          return;
+        }
+
+        // Start
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+          });
+          let options = { mimeType: "audio/webm;codecs=opus" };
+          if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+            options = { mimeType: "audio/webm" };
+          }
+          const mr = new MediaRecorder(stream, {
+            audioBitsPerSecond: 32000,
+            ...options,
+          });
+
+          if (type === "start") {
+            chunksStart = [];
+            mr.ondataavailable = (e) => chunksStart.push(e.data);
+            mr.onstop = async () => {
+              const blob = new Blob(chunksStart, { type: mr.mimeType });
+              if (blob.size < 1000) {
+                alert("Recording too short!");
+                return;
+              }
+              const url = URL.createObjectURL(blob);
+              document.getElementById("audio-preview-start").src = url;
+              document
+                .getElementById("wrapper-start-audio")
+                .classList.remove("hidden");
+              document.getElementById("btn-start-work").disabled = false;
+
+              // ★ AUTO-SAVE to IndexedDB draft
+              let s = sessionsList.find((x) => x.id === currentSessionId);
+              if (s) {
+                s.startAudioBlob = blob;
+                await dbTx("sessions", "readwrite", (store) => store.put(s));
+              }
+            };
+            recStart = mr;
+          } else {
+            chunksRef = [];
+            mr.ondataavailable = (e) => chunksRef.push(e.data);
+            mr.onstop = async () => {
+              const blob = new Blob(chunksRef, { type: mr.mimeType });
+              if (blob.size < 1000) {
+                alert("Recording too short!");
+                return;
+              }
+              const url = URL.createObjectURL(blob);
+              document.getElementById("audio-preview-ref").src = url;
+              document
+                .getElementById("wrapper-ref-audio")
+                .classList.remove("hidden");
+              document.getElementById("btn-finish-session").disabled = false;
+
+              // ★ AUTO-SAVE reflection draft to session (will be moved to history on finish)
+              let s = sessionsList.find((x) => x.id === currentSessionId);
+              if (s) {
+                s.reflectionAudioBlob = blob;
+                await dbTx("sessions", "readwrite", (store) => store.put(s));
+              }
+            };
+            recRef = mr;
+          }
+
+          mr.start();
+          btn.classList.add("recording", "animate-record");
+          btn.innerHTML = "⏹️ Stop Recording";
+        } catch (e) {
+          alert("Microphone access denied or not supported.");
+        }
+      }
+
+      function deleteStartAudio() {
+        document.getElementById("wrapper-start-audio").classList.add("hidden");
+        document.getElementById("audio-preview-start").src = "";
+        document.getElementById("btn-start-work").disabled = true;
+        // Remove from session
+        let s = sessionsList.find((x) => x.id === currentSessionId);
+        if (s) {
+          s.startAudioBlob = null;
+          dbTx("sessions", "readwrite", (store) => store.put(s));
+        }
+      }
+
+      function deleteReflectionAudio() {
+        document.getElementById("wrapper-ref-audio").classList.add("hidden");
+        document.getElementById("audio-preview-ref").src = "";
+        document.getElementById("btn-finish-session").disabled = true;
+        let s = sessionsList.find((x) => x.id === currentSessionId);
+        if (s) {
+          s.reflectionAudioBlob = null;
+          dbTx("sessions", "readwrite", (store) => store.put(s));
+        }
+      }
+
+      function setAudioSpeed(audioId, speed, btnEl) {
+        const audio = document.getElementById(audioId);
+        if (audio) audio.playbackRate = speed;
+        const group = btnEl.parentElement;
+        group.querySelectorAll(".speed-btn").forEach((b) => {
+          b.classList.remove(
+            "active",
+            "bg-blue-600",
+            "text-white",
+            "border-blue-600",
+          );
+          b.classList.add("bg-slate-50", "text-slate-500");
+        });
+        btnEl.classList.remove("bg-slate-50", "text-slate-500");
+        btnEl.classList.add(
+          "active",
+          "bg-blue-600",
+          "text-white",
+          "border-blue-600",
+        );
+      }
+
+      // ──────────────────────────────────────────────
+      //  FINISH SESSION (save to history)
+      // ──────────────────────────────────────────────
+      async function finishSessionProcess() {
+        if (breakInterval) clearInterval(breakInterval);
+        breakInterval = null;
+
+        let s = sessionsList.find((x) => x.id === currentSessionId);
+        if (!s) return;
+
+        s.completed = true;
+        s.breakSec = Math.floor(breakElapsedSec);
+
+        // Capture final audio blobs from UI or session
+        let blobStart = s.startAudioBlob || null;
+        let blobRef = s.reflectionAudioBlob || null;
+
+        const urlStart = document.getElementById("audio-preview-start").src;
+        if (urlStart && urlStart.startsWith("blob:") && !blobStart) {
+          try {
+            blobStart = await (await fetch(urlStart)).blob();
+          } catch (e) {
+            /* ignore */
+          }
+        }
+        const urlRef = document.getElementById("audio-preview-ref").src;
+        if (urlRef && urlRef.startsWith("blob:") && !blobRef) {
+          try {
+            blobRef = await (await fetch(urlRef)).blob();
+          } catch (e) {
+            /* ignore */
+          }
+        }
+
+        const historyRecord = {
+          id: Date.now() + Math.random(),
+          actionId: s.actionId,
+          title: s.title,
+          type: s.type,
+          timestamp: Date.now(),
+          dateStr: s.dateStr,
+          targetMins: s.durationMins,
+          actualMins: Math.floor(s.actualSec / 60),
+          breakMins: Math.floor(s.breakSec / 60),
+          startAudio: blobStart,
+          reflectionAudio: blobRef,
+          status: "completed",
+        };
+
+        await dbTx("history", "readwrite", (store) => store.put(historyRecord));
+        await dbTx("sessions", "readwrite", (store) => store.delete(s.id));
+        sessionsList = sessionsList.filter((x) => x.id !== s.id);
+
+        const bm = Math.floor(breakElapsedSec / 60);
+        const bs = Math.floor(breakElapsedSec % 60);
+        document.getElementById("final-session-break-display").innerText =
+          `${bm}m ${bs}s`;
+
+        await evaluateHabitStreaks();
+
+        // Suggest next session
+        const todayStr = new Date().toLocaleDateString();
+        let nextS = sessionsList.find(
+          (x) =>
+            !x.completed &&
+            (x.dateStr === todayStr || x.type === "direct_session"),
+        );
+        if (nextS) {
+          document
+            .getElementById("next-session-suggestion")
+            .classList.remove("hidden");
+          document.getElementById("next-task-card").innerHTML = `
+              <div class="flex justify-between items-center">
+                 <div>
+                    <div class="font-bold text-sm text-slate-800">${nextS.title}</div>
+                    <div class="text-xs text-slate-500 mt-1">Duration: ${nextS.durationMins}m</div>
+                 </div>
+                 <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-sm transition-colors shrink-0" onclick="prepareSessionExecution(${nextS.id})">Start 🚀</button>
+              </div>
+            `;
+        } else {
+          document
+            .getElementById("next-session-suggestion")
+            .classList.add("hidden");
+        }
+
+        switchView("step-break");
+        resetInactivityTimer();
+      }
+
+      // ──────────────────────────────────────────────
+      //  MODALS: CREATE / EDIT / DELETE / MOVE
+      // ──────────────────────────────────────────────
+      function switchModalType(type) {
+        if (type === "action") {
+          document
+            .getElementById("toggle-type-action")
+            .classList.add("bg-white", "text-blue-600", "shadow-sm");
+          document
+            .getElementById("toggle-type-action")
+            .classList.remove("text-slate-500");
+          document
+            .getElementById("toggle-type-session")
+            .classList.remove("bg-white", "text-blue-600", "shadow-sm");
+          document
+            .getElementById("toggle-type-session")
+            .classList.add("text-slate-500");
+          document
+            .getElementById("modal-section-action")
+            .classList.remove("hidden");
+          document
+            .getElementById("modal-section-session")
+            .classList.add("hidden");
+        } else {
+          document
+            .getElementById("toggle-type-session")
+            .classList.add("bg-white", "text-blue-600", "shadow-sm");
+          document
+            .getElementById("toggle-type-session")
+            .classList.remove("text-slate-500");
+          document
+            .getElementById("toggle-type-action")
+            .classList.remove("bg-white", "text-blue-600", "shadow-sm");
+          document
+            .getElementById("toggle-type-action")
+            .classList.add("text-slate-500");
+          document
+            .getElementById("modal-section-action")
+            .classList.add("hidden");
+          document
+            .getElementById("modal-section-session")
+            .classList.remove("hidden");
+        }
+      }
+
+      function toggleScheduleRangeFields() {
+        const mode = document.querySelector(
+          'input[name="schedule-mode"]:checked',
+        ).value;
+        if (mode === "range") {
+          document
+            .getElementById("wrapper-action-end-date")
+            .classList.remove("hidden");
+          document.getElementById("forever-info-badge").classList.add("hidden");
+        } else {
+          document
+            .getElementById("wrapper-action-end-date")
+            .classList.add("hidden");
+          document
+            .getElementById("forever-info-badge")
+            .classList.remove("hidden");
+        }
+      }
+
+      function openCreateModal(defaultType = "session") {
+        document.getElementById("create-modal").classList.remove("hidden");
+        document.getElementById("modal-editing-action-id").value = "";
+        document.getElementById("create-modal-title").innerText =
+          "⚡ Create Task";
+        document
+          .getElementById("modal-type-toggle-group")
+          .classList.remove("hidden");
+        document.getElementById("modal-item-name").value = "";
+        document.getElementById("modal-item-time").value = "";
+        document
+          .querySelectorAll("#modal-action-days-box input")
+          .forEach((i) => (i.checked = true));
+        document.getElementById("schedule-mode-forever").checked = true;
+        toggleScheduleRangeFields();
+        document.getElementById("modal-action-start-date").value = "";
+        document.getElementById("modal-action-end-date").value = "";
+        switchModalType(defaultType);
+      }
+
+      function closeCreateModal() {
+        document.getElementById("create-modal").classList.add("hidden");
+      }
+
+      async function saveModalItem() {
+        let name = document.getElementById("modal-item-name").value.trim();
+        let mins = parseInt(document.getElementById("modal-item-time").value);
+        if (!mins || mins < 1) {
+          alert("Please enter a valid duration (minimum 1 minute).");
+          return;
+        }
+        let isAction = !document
+          .getElementById("modal-section-action")
+          .classList.contains("hidden");
+        let editId = document.getElementById("modal-editing-action-id").value;
+
+        if (!name) {
+          document
+            .getElementById("modal-error-name")
+            .classList.remove("hidden");
+          return;
+        } else {
+          document.getElementById("modal-error-name").classList.add("hidden");
+        }
+
+        if (isAction) {
+          let days = [];
+          document
+            .querySelectorAll("#modal-action-days-box input:checked")
+            .forEach((i) => days.push(parseInt(i.value)));
+          if (days.length === 0) {
+            document
+              .getElementById("modal-error-days")
+              .classList.remove("hidden");
+            return;
+          } else {
+            document.getElementById("modal-error-days").classList.add("hidden");
+          }
+
+          let sDateStr =
+            document.getElementById("modal-action-start-date").value || null;
+          let eDateStr = null;
+          if (
+            document.querySelector('input[name="schedule-mode"]:checked')
+              .value === "range"
+          ) {
+            eDateStr =
+              document.getElementById("modal-action-end-date").value || null;
+          }
+
+          let actionObj = {
+            id: editId ? parseFloat(editId) : Date.now() + Math.random(),
+            name: name,
+            duration: mins,
+            days: days,
+            startDateStr: sDateStr,
+            endDateStr: eDateStr,
+          };
+
+          await dbTx("actions", "readwrite", (store) => store.put(actionObj));
+          closeCreateModal();
+          await loadActionsAndGenerateSessions();
+          if (
+            document.getElementById("tab-action").classList.contains("hidden")
+          )
+            renderTodoList();
+          else renderActionList();
+        } else {
+          let newSess = {
+            id: Date.now() + Math.random(),
+            actionId: null,
+            title: name,
+            durationMins: mins,
+            dateStr: getTodayDateStr(),
+            completed: false,
+            type: "direct_session",
+            createdAt: Date.now(),
+            order: sessionsList.length,
+          };
+          await dbTx("sessions", "readwrite", (store) => store.put(newSess));
+          sessionsList.push(newSess);
+          closeCreateModal();
+          renderTodoList();
+        }
+      }
+
+      function openEditSessionModal(sid) {
+        document
+          .querySelectorAll(".dropdown-menu")
+          .forEach((m) => m.classList.add("hidden"));
+        let s = sessionsList.find((x) => x.id === sid);
+        if (!s) return;
+        document.getElementById("edit-session-id").value = s.id;
+        document.getElementById("edit-session-name").value = s.title;
+        document.getElementById("edit-session-duration").value = s.durationMins;
+        document
+          .getElementById("edit-session-modal")
+          .classList.remove("hidden");
+      }
+
+      function closeEditSessionModal() {
+        document.getElementById("edit-session-modal").classList.add("hidden");
+      }
+
+      async function saveEditedSession() {
+        let sid = parseFloat(document.getElementById("edit-session-id").value);
+        let name = document.getElementById("edit-session-name").value.trim();
+        let mins = parseInt(
+          document.getElementById("edit-session-duration").value,
+        );
+        let s = sessionsList.find((x) => x.id === sid);
+        if (s && name) {
+          s.title = name;
+          s.durationMins = mins;
+          await dbTx("sessions", "readwrite", (store) => store.put(s));
+          closeEditSessionModal();
+          renderTodoList();
+        }
+      }
+
+      function deleteSession(sid) {
+        document
+          .querySelectorAll(".dropdown-menu")
+          .forEach((m) => m.classList.add("hidden"));
+        showConfirmModal(
+          "Are you sure you want to delete this session?",
+          async () => {
+            let s = sessionsList.find((x) => x.id === sid);
+            if (!s) return;
+
+            // ★★★ হিস্টরিতে রাখব, কিন্তু streak-এ প্রভাব ফেলবে না ★★★
+            if (s.type === "action_session") {
+              const historyRecord = {
+                id: Date.now() + Math.random(),
+                actionId: s.actionId,
+                title: s.title,
+                type: s.type,
+                timestamp: Date.now(),
+                dateStr: s.dateStr,
+                targetMins: s.durationMins,
+                actualMins: 0,
+                breakMins: 0,
+                status: "deleted", // এই স্ট্যাটাস streak-এ প্রভাব ফেলবে না (evaluateHabitStreaks-এ deleted চেক করা নেই)
+              };
+              await dbTx("history", "readwrite", (store) =>
+                store.put(historyRecord),
+              );
+            }
+
+            await dbTx("sessions", "readwrite", (store) => store.delete(sid));
+            sessionsList = sessionsList.filter((x) => x.id !== sid);
+            renderTodoList();
+          },
+        );
+      }
+
+      function openMoveSessionModal(sid) {
+        document
+          .querySelectorAll(".dropdown-menu")
+          .forEach((m) => m.classList.add("hidden"));
+        const session = sessionsList.find((s) => s.id === sid);
+        if (!session || !session.actionId) return;
+        const action = actionsList.find((a) => a.id === session.actionId);
+        if (!action) return;
+
+        document.getElementById("move-session-id").value = session.id;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const dayIdx = today.getDay();
+        const offset = (dayIdx + 1) % 7;
+        const satDate = new Date(today);
+        satDate.setDate(today.getDate() - offset);
+
+        const optionsContainer = document.getElementById("move-date-options");
+        optionsContainer.innerHTML = "";
+        let hasOptions = false;
+        const dayNames = [
+          "Sunday",
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+        ];
+
+        for (let i = 0; i < 7; i++) {
+          let d = new Date(satDate);
+          d.setDate(satDate.getDate() + i);
+          let dDay = d.getDay();
+          if (d >= today) {
+            const isRegularDay = action.days && action.days.includes(dDay);
+            const hasSessionAlready = sessionsList.some(
+              (s) =>
+                s.actionId === action.id &&
+                s.dateStr === d.toLocaleDateString() &&
+                s.id !== session.id,
+            );
+            if (!isRegularDay && !hasSessionAlready) {
+              hasOptions = true;
+              optionsContainer.innerHTML += `
+                  <label class="block p-3 mb-2 border border-slate-200 rounded-xl cursor-pointer hover:bg-blue-50 transition-colors flex items-center">
+                      <input type="radio" name="move-target-date" value="${d.toISOString().slice(0, 10)}" class="mr-3 w-4 h-4 accent-blue-600">
+                      <span class="text-sm font-semibold text-slate-700">${dayNames[dDay]}, ${d.toLocaleDateString()}</span>
+                  </label>
+                `;
+            }
+          }
+        }
+
+        if (!hasOptions) {
+          optionsContainer.innerHTML = `<p class="text-xs font-bold text-red-600 bg-red-50 p-3 rounded-xl border border-red-100">No free days available in the current week (Sat-Fri) to move this session.</p>`;
+          document.getElementById("btn-confirm-move").style.display = "none";
+        } else {
+          document.getElementById("btn-confirm-move").style.display = "block";
+        }
+        document
+          .getElementById("move-session-modal")
+          .classList.remove("hidden");
+      }
+
+      function closeMoveSessionModal() {
+        document.getElementById("move-session-modal").classList.add("hidden");
+      }
+
+      async function saveMovedSession() {
+        const sid = parseFloat(
+          document.getElementById("move-session-id").value,
+        );
+        const sel = document.querySelector(
+          'input[name="move-target-date"]:checked',
+        );
+        if (!sel) return;
+        const session = sessionsList.find((s) => s.id === sid);
+        if (session) {
+          session.dateStr = sel.value;
+          await dbTx("sessions", "readwrite", (store) => store.put(session));
+          closeMoveSessionModal();
+          renderTodoList();
+        }
+      }
+
+      function openEditActionModal(aid) {
+        let a = actionsList.find((x) => x.id === aid);
+        if (!a) return;
+        openCreateModal("action");
+        document.getElementById("create-modal-title").innerText =
+          "✏️ Edit Repeating Action";
+        document
+          .getElementById("modal-type-toggle-group")
+          .classList.add("hidden");
+        document.getElementById("modal-editing-action-id").value = a.id;
+        document.getElementById("modal-item-name").value = a.name;
+        document.getElementById("modal-item-time").value = a.duration;
+        document
+          .querySelectorAll("#modal-action-days-box input")
+          .forEach((i) => {
+            i.checked = a.days.includes(parseInt(i.value));
+          });
+        if (a.startDateStr || a.endDateStr) {
+          document.getElementById("schedule-mode-range").checked = true;
+          document.getElementById("modal-action-start-date").value =
+            a.startDateStr || "";
+          document.getElementById("modal-action-end-date").value =
+            a.endDateStr || "";
+        }
+        toggleScheduleRangeFields();
+      }
+
+      function deleteAction(aid) {
+        showConfirmModal(
+          "Delete this action template? All future sessions and history will be deleted.",
+          async () => {
+            await dbTx("actions", "readwrite", (s) => s.delete(aid));
+            await dbTx("streaks", "readwrite", (s) => s.delete(aid));
+            for (let i = sessionsList.length - 1; i >= 0; i--) {
+              let s = sessionsList[i];
+              if (s.actionId === aid) {
+                await dbTx("sessions", "readwrite", (store) =>
+                  store.delete(s.id),
+                );
+                sessionsList.splice(i, 1);
+              }
+            }
+            const hist =
+              (await dbTx("history", "readonly", (s) => s.getAll())) || [];
+            for (let h of hist) {
+              if (h.actionId === aid) {
+                await dbTx("history", "readwrite", (s) => s.delete(h.id));
+              }
+            }
+            actionsList = actionsList.filter((x) => x.id !== aid);
+            renderActionList();
+          },
+        );
+      }
+
+      async function resetTodayProgress() {
+        showConfirmModal(
+          "Reset today's progress for all pending sessions back to 0?",
+          async () => {
+            for (let s of sessionsList) {
+              if (!s.completed && s.actualSec > 0) {
+                s.actualSec = 0;
+                s.startAudioBlob = null;
+                await dbTx("sessions", "readwrite", (store) => store.put(s));
+              }
+            }
+            window._notified = false;
+            renderTodoList();
+          },
+        );
+      }
+
+      // ──────────────────────────────────────────────
+      //  HISTORY
+      // ──────────────────────────────────────────────
+      async function populateHistoryActionFilter() {
+        const sel = document.getElementById("history-filter-action");
+        sel.innerHTML = '<option value="ALL">All Actions</option>';
+        for (let a of actionsList) {
+          sel.innerHTML += `<option value="${a.id}">${a.name}</option>`;
+        }
+      }
+
+      async function renderHistoryList() {
+        let hist = (await dbTx("history", "readonly", (s) => s.getAll())) || [];
+        hist.sort((a, b) => b.timestamp - a.timestamp);
+
+        let fDate = document.getElementById("history-filter-date").value;
+        let fType = document.getElementById("history-filter-type").value;
+        let fAct = document.getElementById("history-filter-action").value;
+
+        if (fDate) {
+          const dStr = new Date(fDate).toISOString().slice(0, 10);
+          hist = hist.filter((h) => h.dateStr === dStr);
+        }
+        if (fType !== "ALL") hist = hist.filter((h) => h.type === fType);
+        if (fAct !== "ALL")
+          hist = hist.filter((h) => String(h.actionId) === fAct);
+
+        const cont = document.getElementById("history-container");
+        cont.innerHTML = "";
+        if (hist.length === 0) {
+          cont.innerHTML =
+            '<div class="text-center py-8 text-sm text-slate-500">No records found.</div>';
+          return;
+        }
+
+        hist.forEach((h) => {
+          const isExp = h.status === "expired";
+          const isDeleted = h.status === "deleted";
+          let bgClass = "bg-white border-slate-200";
+          let badge = "";
+
+          if (isExp) {
+            bgClass = "bg-red-50 border-red-200";
+            badge = `<span class="bg-red-600 text-white px-2 py-0.5 rounded text-[10px] font-bold">EXPIRED / PENALTY</span>`;
+          } else if (isDeleted) {
+            bgClass = "bg-gray-50 border-gray-300";
+            badge = `<span class="bg-gray-500 text-white px-2 py-0.5 rounded text-[10px] font-bold">DELETED</span>`;
+          } else {
+            bgClass = "bg-white border-slate-200";
+            badge = `<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[10px] font-bold">COMPLETED</span>`;
+          }
+
+          // Audio buttons with speed controls
+          let aStart = "";
+          let aRef = "";
+          if (h.startAudio) {
+            aStart = `<button class="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded" onclick="playHistoryAudio(this, '${h.id}', 'start')">▶️ Play Pre-Work</button>`;
+          }
+          if (h.reflectionAudio) {
+            aRef = `<button class="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-1 rounded" onclick="playHistoryAudio(this, '${h.id}', 'ref')">▶️ Play Reflection</button>`;
+          }
+
+          cont.innerHTML += `
+              <div class="${bgClass} border rounded-2xl p-4 shadow-sm mb-3">
+                 <div class="flex justify-between items-start mb-2">
+                    <div>
+                       <div class="font-bold text-slate-800 text-sm flex items-center gap-2 flex-wrap">${h.title} ${badge}</div>
+                       <div class="text-[11px] text-slate-500 mt-0.5">${h.dateStr} | Target: ${h.targetMins}m | Actual: ${h.actualMins}m | Break: ${h.breakMins}m</div>
+                    </div>
+                    <div class="text-[10px] font-bold text-slate-400">ID: ${Math.floor(h.id).toString().slice(-4)}</div>
+                 </div>
+                 
+                 <!-- Pre-Work -->
+                 <div class="mt-2">
+                    <button class="text-[10px] font-bold bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200 transition-colors" 
+                            onclick="toggleHistoryAudio(event, '${h.id}', 'start', this)">
+                       ▶️ Play Pre-Work
+                    </button>
+                    <div id="history-audio-player-${h.id}-start" class="mt-1 hidden">
+                       <audio controls class="w-full h-10 rounded"></audio>
+                       <div class="flex items-center gap-1 mt-1 flex-wrap">
+                          <span class="text-[10px] text-slate-500 mr-1 font-semibold uppercase">Speed:</span>
+                          <button class="hist-speed-btn bg-blue-600 text-white border-blue-600 px-2 py-0.5 text-[10px] font-bold rounded" onclick="setHistoryAudioSpeed('${h.id}-start', 1.0, this)">1.0x</button>
+                          <button class="hist-speed-btn bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 px-2 py-0.5 text-[10px] font-bold rounded" onclick="setHistoryAudioSpeed('${h.id}-start', 1.25, this)">1.25x</button>
+                          <button class="hist-speed-btn bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 px-2 py-0.5 text-[10px] font-bold rounded" onclick="setHistoryAudioSpeed('${h.id}-start', 1.5, this)">1.5x</button>
+                          <button class="hist-speed-btn bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 px-2 py-0.5 text-[10px] font-bold rounded" onclick="setHistoryAudioSpeed('${h.id}-start', 2.0, this)">2.0x</button>
+                       </div>
+                    </div>
+                 </div>
+
+                 <!-- Reflection -->
+                 <div class="mt-2">
+                    <button class="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-3 py-1 rounded hover:bg-emerald-200 transition-colors" 
+                            onclick="toggleHistoryAudio(event, '${h.id}', 'ref', this)">
+                       ▶️ Play Reflection
+                    </button>
+                    <div id="history-audio-player-${h.id}-ref" class="mt-1 hidden">
+                       <audio controls class="w-full h-10 rounded"></audio>
+                       <div class="flex items-center gap-1 mt-1 flex-wrap">
+                          <span class="text-[10px] text-slate-500 mr-1 font-semibold uppercase">Speed:</span>
+                          <button class="hist-speed-btn bg-blue-600 text-white border-blue-600 px-2 py-0.5 text-[10px] font-bold rounded" onclick="setHistoryAudioSpeed('${h.id}-ref', 1.0, this)">1.0x</button>
+                          <button class="hist-speed-btn bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 px-2 py-0.5 text-[10px] font-bold rounded" onclick="setHistoryAudioSpeed('${h.id}-ref', 1.25, this)">1.25x</button>
+                          <button class="hist-speed-btn bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 px-2 py-0.5 text-[10px] font-bold rounded" onclick="setHistoryAudioSpeed('${h.id}-ref', 1.5, this)">1.5x</button>
+                          <button class="hist-speed-btn bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 px-2 py-0.5 text-[10px] font-bold rounded" onclick="setHistoryAudioSpeed('${h.id}-ref', 2.0, this)">2.0x</button>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+            `;
+        });
+      }
+
+      let historyAudioCache = {};
+
+      async function toggleHistoryAudio(event, hid, type, btnEl) {
+        event.stopPropagation();
+
+        const hist =
+          (await dbTx("history", "readonly", (s) => s.getAll())) || [];
+        const rec = hist.find((x) => String(x.id) === String(hid));
+        if (!rec) return;
+
+        const blob = type === "start" ? rec.startAudio : rec.reflectionAudio;
+        if (!blob) {
+          alert("Audio not found for this session.");
+          return;
+        }
+
+        const containerId = `history-audio-player-${hid}-${type}`;
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const isHidden = container.classList.contains("hidden");
+
+        if (isHidden) {
+          // Show player
+          container.classList.remove("hidden");
+          // Update button icon
+          btnEl.innerHTML = btnEl.innerHTML.replace("▶️", "▼");
+
+          const audio = container.querySelector("audio");
+          // Load audio only once
+          if (!audio.src || audio.src === "") {
+            const url = URL.createObjectURL(blob);
+            audio.src = url;
+            audio.load();
+            audio.playbackRate = 1.0;
+            // Reset speed buttons
+            container.querySelectorAll(".hist-speed-btn").forEach((b) => {
+              b.classList.remove(
+                "bg-blue-600",
+                "text-white",
+                "border-blue-600",
+              );
+              b.classList.add("bg-slate-50", "text-slate-500");
+            });
+            const firstBtn = container.querySelector(".hist-speed-btn");
+            if (firstBtn) {
+              firstBtn.classList.remove("bg-slate-50", "text-slate-500");
+              firstBtn.classList.add(
+                "bg-blue-600",
+                "text-white",
+                "border-blue-600",
+              );
+            }
+          }
+          audio.play().catch(() => {});
+        } else {
+          // Hide player
+          container.classList.add("hidden");
+          // Revert button icon
+          btnEl.innerHTML = btnEl.innerHTML.replace("▼", "▶️");
+        }
+      }
+
+      function setHistoryAudioSpeed(hid, speed, btnEl) {
+        const container = document.getElementById(
+          `history-audio-player-${hid}`,
+        );
+        if (!container) return;
+        const audio = container.querySelector("audio");
+        if (audio) audio.playbackRate = speed;
+
+        container.querySelectorAll(".hist-speed-btn").forEach((b) => {
+          b.classList.remove("bg-blue-600", "text-white", "border-blue-600");
+          b.classList.add("bg-slate-50", "text-slate-500");
+        });
+        btnEl.classList.remove("bg-slate-50", "text-slate-500");
+        btnEl.classList.add("bg-blue-600", "text-white", "border-blue-600");
+      }
+
+      function resetHistoryFilters() {
+        document.getElementById("history-filter-date").value = "";
+        document.getElementById("history-filter-type").value = "ALL";
+        document.getElementById("history-filter-action").value = "ALL";
+        renderHistoryList();
+      }
+
+      // ──────────────────────────────────────────────
+      //  ANALYTICS
+      // ──────────────────────────────────────────────
+      async function populateAnalyticsFilter() {
+        const sel = document.getElementById("analytics-action-filter");
+        sel.innerHTML = '<option value="ALL">All Actions Combined</option>';
+        for (let a of actionsList) {
+          sel.innerHTML += `<option value="${a.id}">${a.name}</option>`;
+        }
+      }
+
+      async function renderAnalytics() {
+        const filter = document.getElementById("analytics-action-filter").value;
+        const streaksStore =
+          (await dbTx("streaks", "readonly", (s) => s.getAll())) || [];
+        let totalStreak = 0;
+        if (filter === "ALL") {
+          streaksStore.forEach((s) => (totalStreak += s.streakCount));
+        } else {
+          const f = streaksStore.find((x) => String(x.actionId) === filter);
+          if (f) totalStreak = f.streakCount;
+        }
+        document.getElementById("streak-count-display").innerText =
+          totalStreak + " Days";
+
+        const hist =
+          (await dbTx("history", "readonly", (s) => s.getAll())) || [];
+        const y = currentCalDate.getFullYear();
+        const m = currentCalDate.getMonth();
+        const firstDay = new Date(y, m, 1);
+        const lastDay = new Date(y, m + 1, 0);
+
+        document.getElementById("calendar-month-title").innerText =
+          firstDay.toLocaleDateString("default", {
+            month: "long",
+            year: "numeric",
+          });
+
+        const grid = document.getElementById("calendar-grid-container");
+        grid.innerHTML =
+          '<div class="text-[10px] font-bold text-slate-400 py-1">Sun</div><div class="text-[10px] font-bold text-slate-400 py-1">Mon</div><div class="text-[10px] font-bold text-slate-400 py-1">Tue</div><div class="text-[10px] font-bold text-slate-400 py-1">Wed</div><div class="text-[10px] font-bold text-slate-400 py-1">Thu</div><div class="text-[10px] font-bold text-slate-400 py-1">Fri</div><div class="text-[10px] font-bold text-slate-400 py-1">Sat</div>';
+
+        for (let i = 0; i < firstDay.getDay(); i++) {
+          grid.innerHTML += "<div></div>";
+        }
+
+        for (let i = 1; i <= lastDay.getDate(); i++) {
+          let cellD = new Date(y, m, i);
+          let cStr = cellD.toLocaleDateString();
+          let hForDay = hist.filter((x) => x.dateStr === cStr);
+          if (filter !== "ALL")
+            hForDay = hForDay.filter((x) => String(x.actionId) === filter);
+
+          let classNames =
+            "h-8 sm:h-10 flex items-center justify-center rounded-lg text-xs font-bold border border-slate-200 bg-slate-50 text-slate-600";
+          if (hForDay.length > 0) {
+            let hasExp = hForDay.some((x) => x.status === "expired");
+            let hasComp = hForDay.some(
+              (x) => x.status === "completed" || x.actualMins > 0,
+            );
+            if (hasExp && !hasComp) {
+              classNames =
+                "h-8 sm:h-10 flex items-center justify-center rounded-lg text-xs font-bold border-red-300 bg-red-100 text-red-700 shadow-sm";
+            } else if (hasComp) {
+              classNames =
+                "h-8 sm:h-10 flex items-center justify-center rounded-lg text-xs font-bold border-emerald-300 bg-emerald-100 text-emerald-700 shadow-sm";
+            }
+          }
+          if (cStr === new Date().toLocaleDateString()) {
+            classNames += " ring-2 ring-blue-500 ring-offset-1";
+          }
+          grid.innerHTML += `<div class="${classNames}">${i}</div>`;
+        }
+      }
+
+      function changeCalMonth(dir) {
+        currentCalDate.setMonth(currentCalDate.getMonth() + dir);
+        renderAnalytics();
+      }
+
+      // ──────────────────────────────────────────────
+      //  SETTINGS
+      // ──────────────────────────────────────────────
+      async function clearAudioDataOnly() {
+        showConfirmModal(
+          "Clear all saved voice recordings to free space? Data stats will remain.",
+          async () => {
+            const hist =
+              (await dbTx("history", "readonly", (s) => s.getAll())) || [];
+            for (let h of hist) {
+              if (h.startAudio || h.reflectionAudio) {
+                h.startAudio = null;
+                h.reflectionAudio = null;
+                await dbTx("history", "readwrite", (s) => s.put(h));
+              }
+            }
+            alert("Audio cleared successfully!");
+            document
+              .getElementById("audio-cleanup-banner")
+              .classList.add("hidden");
+          },
+        );
+      }
+
+      async function clearHistoryOnly() {
+        showConfirmModal(
+          "Delete all history records? Streaks will reset.",
+          async () => {
+            await dbTx("history", "readwrite", (s) => s.clear());
+            await dbTx("streaks", "readwrite", (s) => s.clear());
+            renderHistoryList();
+            renderAnalytics();
+          },
+        );
+      }
+
+      async function clearAllData() {
+        showConfirmModal(
+          "⚠️ DANGER: Wipe all actions, sessions, and history?",
+          async () => {
+            await dbTx("actions", "readwrite", (s) => s.clear());
+            await dbTx("sessions", "readwrite", (s) => s.clear());
+            await dbTx("history", "readwrite", (s) => s.clear());
+            await dbTx("streaks", "readwrite", (s) => s.clear());
+            actionsList = [];
+            sessionsList = [];
+            goHome();
+          },
+        );
+      }
+
+      async function exportDataJSON() {
+        const exportObj = {
+          actions: await dbTx("actions", "readonly", (s) => s.getAll()),
+          sessions: await dbTx("sessions", "readonly", (s) => s.getAll()),
+          history: (await dbTx("history", "readonly", (s) => s.getAll())).map(
+            (h) => ({ ...h, startAudio: null, reflectionAudio: null }),
+          ),
+          streaks: await dbTx("streaks", "readonly", (s) => s.getAll()),
+          settings: await dbTx("settings", "readonly", (s) => s.getAll()),
+        };
+        const blob = new Blob([JSON.stringify(exportObj)], {
+          type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `SmarterHabits_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+      }
+
+      function triggerImportJSON() {
+        document.getElementById("import-json-file").click();
+      }
+
+      function importDataJSON(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+          try {
+            const data = JSON.parse(ev.target.result);
+            if (data.actions) {
+              await dbTx("actions", "readwrite", (s) => s.clear());
+              for (let a of data.actions)
+                await dbTx("actions", "readwrite", (s) => s.put(a));
+            }
+            if (data.sessions) {
+              await dbTx("sessions", "readwrite", (s) => s.clear());
+              for (let x of data.sessions)
+                await dbTx("sessions", "readwrite", (s) => s.put(x));
+            }
+            if (data.history) {
+              await dbTx("history", "readwrite", (s) => s.clear());
+              for (let h of data.history)
+                await dbTx("history", "readwrite", (s) => s.put(h));
+            }
+            if (data.streaks) {
+              await dbTx("streaks", "readwrite", (s) => s.clear());
+              for (let s of data.streaks)
+                await dbTx("streaks", "readwrite", (store) => store.put(s));
+            }
+            alert("Data Imported Successfully! Reloading...");
+            location.reload();
+          } catch (err) {
+            alert("Invalid JSON Backup File.");
+          }
+        };
+        reader.readAsText(file);
+      }
+
+      // ──────────────────────────────────────────────
+      //  INACTIVITY
+      // ──────────────────────────────────────────────
+      async function saveInactivitySetting() {
+        const val = document.getElementById("inactivity-interval-select").value;
+        await dbTx("settings", "readwrite", (s) =>
+          s.put({ key: "inactivity_interval", value: val }),
+        );
+        resetInactivityTimer();
+      }
+
+      function resetInactivityTimer() {
+        if (inactivityTimer) clearTimeout(inactivityTimer);
+        const val =
+          parseInt(
+            document.getElementById("inactivity-interval-select").value,
+          ) || 0;
+        if (val > 0) {
+          inactivityTimer = setTimeout(
+            () => {
+              document
+                .getElementById("inactivity-reminder-banner")
+                .classList.remove("hidden");
+            },
+            val * 60 * 60 * 1000,
+          );
+        }
+      }
+
+      function dismissInactivityBanner() {
+        document
+          .getElementById("inactivity-reminder-banner")
+          .classList.add("hidden");
+        resetInactivityTimer();
+      }
+
+      function dismissCleanupBanner() {
+        document.getElementById("audio-cleanup-banner").classList.add("hidden");
+      }
+
+      function testInactivityNotification() {
+        document
+          .getElementById("inactivity-reminder-banner")
+          .classList.remove("hidden");
+      }
+
+      function confirmCleanOldAudio() {
+        showConfirmModal(
+          "Delete all audio from sessions older than 30 days?",
+          async () => {
+            const hist =
+              (await dbTx("history", "readonly", (s) => s.getAll())) || [];
+            const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+            for (let h of hist) {
+              if (
+                h.timestamp < thirtyDaysAgo &&
+                (h.startAudio || h.reflectionAudio)
+              ) {
+                h.startAudio = null;
+                h.reflectionAudio = null;
+                await dbTx("history", "readwrite", (s) => s.put(h));
+              }
+            }
+            document
+              .getElementById("audio-cleanup-banner")
+              .classList.add("hidden");
+            alert("Old audio cleaned.");
+          },
+        );
+      }
+
+      // ──────────────────────────────────────────────
+      //  UI NAVIGATION
+      // ──────────────────────────────────────────────
+      function switchTab(tabId) {
+        ["todo", "action", "history", "analytics", "settings"].forEach((t) => {
+          document.getElementById("tab-" + t).classList.add("hidden");
+          let btn = document.getElementById("btn-tab-" + t);
+          btn.classList.remove("bg-white", "text-blue-600", "shadow-sm");
+          btn.classList.add("text-slate-500");
+        });
+        document.getElementById("tab-" + tabId).classList.remove("hidden");
+        let activeBtn = document.getElementById("btn-tab-" + tabId);
+        activeBtn.classList.add("bg-white", "text-blue-600", "shadow-sm");
+        activeBtn.classList.remove("text-slate-500");
+
+        if (tabId === "todo") renderTodoList();
+        if (tabId === "action") renderActionList();
+        if (tabId === "history") {
+          populateHistoryActionFilter();
+          renderHistoryList();
+        }
+        if (tabId === "analytics") {
+          populateAnalyticsFilter();
+          renderAnalytics();
+        }
+      }
+
+      function switchView(viewId) {
+        [
+          "tab-todo",
+          "step-start",
+          "step-timer",
+          "step-reflection",
+          "step-break",
+        ].forEach((v) => {
+          const el = document.getElementById(v);
+          if (el) el.classList.add("hidden");
+        });
+        document.getElementById("main-nav").style.display =
+          viewId === "tab-todo" ? "flex" : "none";
+        document.getElementById(viewId).classList.remove("hidden");
+      }
+
+      function goHome() {
+        // Clean up timers
+        if (workInterval) {
+          clearInterval(workInterval);
+          workInterval = null;
+        }
+        if (breakInterval) {
+          clearInterval(breakInterval);
+          breakInterval = null;
+        }
+        renderTodoList();
+        switchView("tab-todo");
+      }
+
+      // ──────────────────────────────────────────────
+      //  DROPDOWN TOGGLE
+      // ──────────────────────────────────────────────
+      document.addEventListener("click", (e) => {
+        if (!e.target.closest(".dropdown-container")) {
+          document
+            .querySelectorAll(".dropdown-menu")
+            .forEach((m) => m.classList.add("hidden"));
+        }
+      });
+
+      function toggleDropdown(event, id) {
+        event.stopPropagation();
+        const m = document.getElementById(`dropdown-${id}`);
+        const isHidden = m.classList.contains("hidden");
+        document
+          .querySelectorAll(".dropdown-menu")
+          .forEach((menu) => menu.classList.add("hidden"));
+        if (isHidden) m.classList.remove("hidden");
+      }
+
+      // ──────────────────────────────────────────────
+      //  CONFIRM MODAL
+      // ──────────────────────────────────────────────
+      function showConfirmModal(msg, onConfirm) {
+        document.getElementById("modal-message").innerText = msg;
+        document.getElementById("custom-modal").classList.remove("hidden");
+        let btnConfirm = document.getElementById("modal-btn-confirm");
+        let newConfirm = btnConfirm.cloneNode(true);
+        btnConfirm.parentNode.replaceChild(newConfirm, btnConfirm);
+        newConfirm.addEventListener("click", () => {
+          document.getElementById("custom-modal").classList.add("hidden");
+          onConfirm();
+        });
+        document.getElementById("modal-btn-cancel").onclick = () => {
+          document.getElementById("custom-modal").classList.add("hidden");
+        };
+      }
+
+      // ──────────────────────────────────────────────
+      //  INIT
+      // ──────────────────────────────────────────────
+      window.onload = async () => {
+        try {
+          await initDB();
+          const setting = await dbTx("settings", "readonly", (s) =>
+            s.get("inactivity_interval"),
+          );
+          if (setting) {
+            document.getElementById("inactivity-interval-select").value =
+              setting.value;
+            resetInactivityTimer();
+          }
+          await loadActionsAndGenerateSessions();
+          goHome();
+
+          // Request notification permission
+          if (Notification.permission === "default") {
+            Notification.requestPermission();
+          }
+        } catch (e) {
+          console.error("DB Init Error:", e);
+          alert(
+            "Database Error. App might not function properly in Incognito mode.",
+          );
+        }
+      };
+    </script>
+  </body>
+</html>

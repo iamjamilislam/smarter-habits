@@ -2021,17 +2021,24 @@
         const btn = document.getElementById(btnId);
 
         if (btn.classList.contains("recording")) {
-          // Stop
+          // ★★★ রেকর্ডিং বন্ধ করুন ★★★
           btn.classList.remove("recording", "animate-record");
           btn.innerText =
             type === "start" ? "🎙️ Start Recording" : "🎙️ Record Reflection";
 
-          if (type === "start" && recStart) recStart.stop();
-          if (type === "reflection" && recRef) recRef.stop();
+          if (type === "start" && recStart) {
+            // MediaRecorder বন্ধ করুন (এর onstop হ্যান্ডলার নিজেই কাজ করবে)
+            recStart.stop();
+            recStart = null; // রিসেট
+          }
+          if (type === "reflection" && recRef) {
+            recRef.stop();
+            recRef = null;
+          }
           return;
         }
 
-        // Start
+        // ★★★ রেকর্ডিং শুরু করুন ★★★
         try {
           const stream = await navigator.mediaDevices.getUserMedia({
             audio: true,
@@ -2049,9 +2056,12 @@
             chunksStart = [];
             mr.ondataavailable = (e) => chunksStart.push(e.data);
             mr.onstop = async () => {
+              // ★★★ অডিও প্রসেসিং ★★★
               const blob = new Blob(chunksStart, { type: mr.mimeType });
               if (blob.size < 1000) {
                 alert("Recording too short!");
+                // ট্র্যাক বন্ধ করি
+                stream.getTracks().forEach((track) => track.stop());
                 return;
               }
               const url = URL.createObjectURL(blob);
@@ -2061,12 +2071,14 @@
                 .classList.remove("hidden");
               document.getElementById("btn-start-work").disabled = false;
 
-              // ★ AUTO-SAVE to IndexedDB draft
               let s = sessionsList.find((x) => x.id === currentSessionId);
               if (s) {
                 s.startAudioBlob = blob;
                 await dbTx("sessions", "readwrite", (store) => store.put(s));
               }
+
+              // ★★★ মাইক্রোফোন ট্র্যাক বন্ধ করুন (এখনই) ★★★
+              stream.getTracks().forEach((track) => track.stop());
             };
             recStart = mr;
           } else {
@@ -2076,6 +2088,7 @@
               const blob = new Blob(chunksRef, { type: mr.mimeType });
               if (blob.size < 1000) {
                 alert("Recording too short!");
+                stream.getTracks().forEach((track) => track.stop());
                 return;
               }
               const url = URL.createObjectURL(blob);
@@ -2085,12 +2098,13 @@
                 .classList.remove("hidden");
               document.getElementById("btn-finish-session").disabled = false;
 
-              // ★ AUTO-SAVE reflection draft to session (will be moved to history on finish)
               let s = sessionsList.find((x) => x.id === currentSessionId);
               if (s) {
                 s.reflectionAudioBlob = blob;
                 await dbTx("sessions", "readwrite", (store) => store.put(s));
               }
+
+              stream.getTracks().forEach((track) => track.stop());
             };
             recRef = mr;
           }

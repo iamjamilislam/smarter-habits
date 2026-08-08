@@ -1050,15 +1050,43 @@
         </div>
         <div class="mb-4">
           <label class="block text-xs font-bold text-slate-700 mb-1"
-            >Duration (Mins) *</label
+            >Duration *</label
           >
-          <input
-            type="number"
-            id="modal-item-time"
-            value=""
-            min="1"
-            class="w-full p-3 border border-slate-300 rounded-xl text-sm focus:border-blue-500 outline-none bg-white"
-          />
+          <div class="flex gap-3">
+            <div class="flex-1">
+              <input
+                type="number"
+                id="modal-item-hours"
+                value=""
+                min="0"
+                placeholder="Hours"
+                class="w-full p-3 border border-slate-300 rounded-xl text-sm focus:border-blue-500 outline-none bg-white"
+              />
+              <div class="text-[10px] text-slate-400 mt-0.5 font-medium">
+                Hours
+              </div>
+            </div>
+            <div class="flex-1">
+              <input
+                type="number"
+                id="modal-item-mins"
+                value=""
+                min="0"
+                max="59"
+                placeholder="Minutes"
+                class="w-full p-3 border border-slate-300 rounded-xl text-sm focus:border-blue-500 outline-none bg-white"
+              />
+              <div class="text-[10px] text-slate-400 mt-0.5 font-medium">
+                Minutes
+              </div>
+            </div>
+          </div>
+          <div
+            id="modal-error-duration"
+            class="hidden text-red-600 text-[10px] font-bold mt-1"
+          >
+            Please enter a valid duration (at least 1 minute)
+          </div>
         </div>
         <div id="modal-section-action" class="space-y-4">
           <div>
@@ -1378,6 +1406,15 @@
         const m = String(d.getMonth() + 1).padStart(2, "0");
         const day = String(d.getDate()).padStart(2, "0");
         return `${y}-${m}-${day}`;
+      }
+      function formatDuration(mins) {
+        const m = Math.floor(mins);
+        if (m <= 0) return "0m";
+        const h = Math.floor(m / 60);
+        const rem = m % 60;
+        if (h === 0) return `${rem}m`;
+        if (rem === 0) return `${h}h`;
+        return `${h}h ${rem}m`;
       }
 
       // ──────────────────────────────────────────────
@@ -1756,30 +1793,31 @@
         });
         active.sort((a, b) => (a.order || 0) - (b.order || 0));
 
-        // ── Today's Summary: pending + history ──
+        // ── Today's Summary: pending sessions only ──
         let tTarget = 0,
           tSpent = 0,
           tBreak = 0;
 
-        // Pending sessions (today)
+        // Pending sessions (today) — Target শুধু pending এ
         active.forEach((s) => {
           tTarget += parseInt(s.durationMins) || 0;
           tSpent += Math.floor((s.actualSec || 0) / 60);
           tBreak += Math.floor((s.breakSec || 0) / 60);
         });
 
-        // History sessions (today)
+        // History sessions (today) — Target বাদ দেওয়া হলো
         const todayHistory = historyList.filter((h) => h.dateStr === todayStr);
         todayHistory.forEach((h) => {
-          tTarget += parseInt(h.targetMins) || 0;
           tSpent += parseInt(h.actualMins) || 0;
           tBreak += parseInt(h.breakMins) || 0;
         });
 
         document.getElementById("summary-target-time").innerText =
-          tTarget + "m";
-        document.getElementById("summary-actual-time").innerText = tSpent + "m";
-        document.getElementById("summary-break-time").innerText = tBreak + "m";
+          formatDuration(tTarget);
+        document.getElementById("summary-actual-time").innerText =
+          formatDuration(tSpent);
+        document.getElementById("summary-break-time").innerText =
+          formatDuration(tBreak);
 
         if (active.length === 0) {
           container.innerHTML =
@@ -1817,8 +1855,8 @@
                        ${streakBadge}
                     </div>
                     <div class="text-xs text-slate-500 flex items-center gap-2">
-                       <span>🎯 ${s.durationMins}m</span>
-                       ${s.actualSec > 0 ? `<span>⏳ Spent: ${Math.floor(s.actualSec / 60)}m</span>` : ""}
+                       <span>🎯 ${formatDuration(s.durationMins)}</span>
+                       ${s.actualSec > 0 ? `<span>⏳ Spent: ${formatDuration(Math.floor(s.actualSec / 60))}</span>` : ""}
                        ${s.dateStr !== todayStr ? `<span class="text-amber-600 font-semibold bg-amber-50 px-1.5 rounded">Pending from ${s.dateStr}</span>` : ""}
                     </div>
                  </div>
@@ -1940,6 +1978,12 @@
         workElapsedSec = alreadyElapsed;
         workPaused = false;
         document.getElementById("btn-mid-pause").innerText = "⏸️ Pause";
+        document
+          .getElementById("btn-mid-pause")
+          .classList.remove("bg-emerald-500", "hover:bg-emerald-600");
+        document
+          .getElementById("btn-mid-pause")
+          .classList.add("bg-amber-500", "hover:bg-amber-600");
 
         distractionCount = s.distractionCount || 0;
         document.getElementById("distraction-counter").innerText =
@@ -1984,16 +2028,24 @@
         const remaining = workTargetSec - workElapsedSec;
         const isOver = remaining < 0;
         const displaySec = Math.abs(remaining);
-        const mins = Math.floor(displaySec / 60);
-        const secs = Math.floor(displaySec % 60);
         const el = document.getElementById("work-timer-display");
 
-        // ★★★ এক্সট্রা টাইম হলে মাইনাস চিহ্ন দেখান ★★★
+        const h = Math.floor(displaySec / 3600);
+        const m = Math.floor((displaySec % 3600) / 60);
+        const s = Math.floor(displaySec % 60);
+
+        let timeStr;
+        if (h > 0) {
+          timeStr = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+        } else {
+          timeStr = `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+        }
+
         if (isOver) {
-          el.innerText = `+${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+          el.innerText = "+" + timeStr;
           el.classList.add("text-red-600", "animate-record");
         } else {
-          el.innerText = `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+          el.innerText = timeStr;
           if (remaining <= 0) {
             el.classList.add("text-red-600", "animate-record");
           } else {
@@ -2080,15 +2132,21 @@
 
       function toggleTimerPause() {
         workPaused = !workPaused;
+        const btn = document.getElementById("btn-mid-pause");
+
         if (workPaused) {
-          // pause: record the time we paused
           workPauseStart = Date.now();
-          document.getElementById("btn-mid-pause").innerText = "▶️ Resume";
+          btn.innerText = "▶️ Resume";
+          // Resume colour (green)
+          btn.classList.remove("bg-amber-500", "hover:bg-amber-600");
+          btn.classList.add("bg-emerald-500", "hover:bg-emerald-600");
         } else {
-          // resume: adjust start time
           const pauseDuration = Date.now() - workPauseStart;
           workStartTime += pauseDuration;
-          document.getElementById("btn-mid-pause").innerText = "⏸️ Pause";
+          btn.innerText = "⏸️ Pause";
+          // Pause colour (amber)
+          btn.classList.remove("bg-emerald-500", "hover:bg-emerald-600");
+          btn.classList.add("bg-amber-500", "hover:bg-amber-600");
         }
       }
 
@@ -2478,7 +2536,8 @@
           .getElementById("modal-type-toggle-group")
           .classList.remove("hidden");
         document.getElementById("modal-item-name").value = "";
-        document.getElementById("modal-item-time").value = "";
+        document.getElementById("modal-item-hours").value = "";
+        document.getElementById("modal-item-mins").value = "";
         document
           .querySelectorAll("#modal-action-days-box input")
           .forEach((i) => (i.checked = true));
@@ -2495,10 +2554,20 @@
 
       async function saveModalItem() {
         let name = document.getElementById("modal-item-name").value.trim();
-        let mins = parseInt(document.getElementById("modal-item-time").value);
-        if (!mins || mins < 1) {
-          alert("Please enter a valid duration (minimum 1 minute).");
+        let hours =
+          parseInt(document.getElementById("modal-item-hours").value) || 0;
+        let mins =
+          parseInt(document.getElementById("modal-item-mins").value) || 0;
+        let totalMins = hours * 60 + mins;
+        if (totalMins < 1) {
+          document
+            .getElementById("modal-error-duration")
+            .classList.remove("hidden");
           return;
+        } else {
+          document
+            .getElementById("modal-error-duration")
+            .classList.add("hidden");
         }
         let isAction = !document
           .getElementById("modal-section-action")
@@ -2542,7 +2611,7 @@
           let actionObj = {
             id: editId ? parseFloat(editId) : Date.now() + Math.random(),
             name: name,
-            duration: mins,
+            duration: totalMins,
             days: days,
             startDateStr: sDateStr,
             endDateStr: eDateStr,
@@ -2561,7 +2630,7 @@
             id: Date.now() + Math.random(),
             actionId: null,
             title: name,
-            durationMins: mins,
+            durationMins: totalMins,
             dateStr: getTodayDateStr(),
             completed: false,
             type: "direct_session",
@@ -2742,7 +2811,10 @@
           .classList.add("hidden");
         document.getElementById("modal-editing-action-id").value = a.id;
         document.getElementById("modal-item-name").value = a.name;
-        document.getElementById("modal-item-time").value = a.duration;
+        document.getElementById("modal-item-hours").value = Math.floor(
+          a.duration / 60,
+        );
+        document.getElementById("modal-item-mins").value = a.duration % 60;
         document
           .querySelectorAll("#modal-action-days-box input")
           .forEach((i) => {
@@ -2872,7 +2944,7 @@
                  <div class="flex justify-between items-start mb-2">
                     <div>
                        <div class="font-bold text-slate-800 text-sm flex items-center gap-2 flex-wrap">${h.title} ${badge}</div>
-                       <div class="text-[11px] text-slate-500 mt-0.5">${h.dateStr} | Target: ${h.targetMins}m | Actual: ${h.actualMins}m | Break: ${h.breakMins}m</div>
+                       <div class="text-[11px] text-slate-500 mt-0.5">${h.dateStr} | Target: ${formatDuration(h.targetMins)} | Actual: ${formatDuration(h.actualMins)} | Break: ${formatDuration(h.breakMins)}</div>
                     </div>
                     <div class="text-[10px] font-bold text-slate-400">ID: ${Math.floor(h.id).toString().slice(-4)}</div>
                  </div>

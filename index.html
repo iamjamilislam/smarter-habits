@@ -510,6 +510,55 @@
               ⏸️ Hold & Back
             </button>
           </div>
+          <!-- Distraction & Break Timer -->
+          <div class="flex flex-col sm:flex-row gap-3 mb-4">
+            <button
+              class="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 px-4 rounded-xl shadow-sm transition-colors text-base flex items-center justify-center gap-2"
+              id="btn-distraction"
+              onclick="recordDistraction()"
+            >
+              🔔 Distraction (<span id="distraction-counter">0</span>)
+            </button>
+            <div class="flex-1 flex gap-2">
+              <input
+                type="number"
+                id="break-minutes-input"
+                placeholder="Min"
+                min="1"
+                max="120"
+                class="w-20 p-3 border border-slate-300 rounded-xl text-sm font-bold text-center focus:border-blue-500 outline-none bg-white"
+              />
+              <button
+                class="flex-1 bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-4 rounded-xl shadow-sm transition-colors text-base"
+                id="btn-break-timer"
+                onclick="startBreakTimer()"
+              >
+                ☕ Break
+              </button>
+            </div>
+          </div>
+          <div
+            id="break-timer-display-wrapper"
+            class="hidden bg-sky-50 border border-sky-200 rounded-xl p-4 mb-4 text-center"
+          >
+            <p
+              class="text-xs font-bold text-sky-800 uppercase tracking-wider mb-1"
+            >
+              ⏳ Break Time Remaining
+            </p>
+            <div
+              class="font-mono text-3xl font-black text-sky-600 tracking-tight timer-digits"
+              id="break-timer-display"
+            >
+              00:00
+            </div>
+            <button
+              class="mt-2 bg-sky-200 hover:bg-sky-300 text-sky-800 text-xs font-bold py-1.5 px-4 rounded-lg transition-colors"
+              onclick="endBreakTimer()"
+            >
+              End Break Early
+            </button>
+          </div>
           <button
             class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl shadow-md transition-colors text-lg"
             onclick="completeWorkSession()"
@@ -759,6 +808,16 @@
             id="streak-count-display"
           >
             0 Days
+          </div>
+        </div>
+        <div
+          class="bg-rose-50 border border-rose-100 rounded-2xl p-5 mb-5 shadow-sm"
+        >
+          <div class="text-sm font-bold text-rose-900 mb-2">
+            🔔 Distraction Analytics
+          </div>
+          <div id="distraction-analytics-content" class="space-y-2">
+            <div class="text-xs text-rose-700">Loading...</div>
           </div>
         </div>
         <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
@@ -1265,6 +1324,11 @@
       let breakInterval = null;
       let breakStartTime = 0;
       let breakElapsedSec = 0;
+      let distractionCount = 0;
+      let breakTimerInterval = null;
+      let breakTimerStart = 0;
+      let breakTimerElapsed = 0;
+      let breakTimerTargetSec = 0;
 
       let recStart = null,
         chunksStart = [];
@@ -1877,17 +1941,30 @@
         workPaused = false;
         document.getElementById("btn-mid-pause").innerText = "⏸️ Pause";
 
-        // যদি ইতিমধ্যেই ডিউরেশন শেষ হয়ে যায়, তাহলে শুধু নোটিফিকেশন দিন
-        if (workElapsedSec >= workTargetSec) {
-          playNotificationSound();
-          // কিন্তু টাইমার চলতে থাকবে
+        distractionCount = s.distractionCount || 0;
+        document.getElementById("distraction-counter").innerText =
+          distractionCount;
+
+        document
+          .getElementById("break-timer-display-wrapper")
+          .classList.add("hidden");
+        document.getElementById("btn-break-timer").disabled = false;
+        document
+          .getElementById("btn-break-timer")
+          .classList.remove("opacity-50");
+        document.getElementById("break-minutes-input").value = "";
+        if (breakTimerInterval) {
+          clearInterval(breakTimerInterval);
+          breakTimerInterval = null;
         }
 
-        // Start from timestamp
+        if (workElapsedSec >= workTargetSec) {
+          playNotificationSound();
+        }
+
         workStartTime = Date.now() - workElapsedSec * 1000;
         if (workInterval) clearInterval(workInterval);
 
-        // ★★★ নতুন ইন্টারভাল – কখনো থামবে না ★★★
         workInterval = setInterval(() => {
           if (!workPaused) {
             const now = Date.now();
@@ -1895,7 +1972,6 @@
             if (workElapsedSec < 0) workElapsedSec = 0;
             updateWorkTimerDisplay();
 
-            // ★★★ শুধুমাত্র প্রথমবার ডিউরেশন শেষ হলে নোটিফিকেশন দিন ★★★
             if (workElapsedSec >= workTargetSec && !window._notified) {
               window._notified = true;
               playNotificationSound();
@@ -1925,6 +2001,82 @@
           }
         }
       }
+      function recordDistraction() {
+        distractionCount++;
+        document.getElementById("distraction-counter").innerText =
+          distractionCount;
+        if (!workPaused) {
+          workPaused = true;
+          workPauseStart = Date.now();
+          document.getElementById("btn-mid-pause").innerText = "▶️ Resume";
+        }
+        let s = sessionsList.find((x) => x.id === currentSessionId);
+        if (s) s.distractionCount = distractionCount;
+      }
+
+      function startBreakTimer() {
+        const mins = parseInt(
+          document.getElementById("break-minutes-input").value,
+        );
+        if (!mins || mins < 1) {
+          alert("Please enter break duration in minutes.");
+          return;
+        }
+        if (!workPaused) {
+          workPaused = true;
+          workPauseStart = Date.now();
+          document.getElementById("btn-mid-pause").innerText = "▶️ Resume";
+        }
+        breakTimerTargetSec = mins * 60;
+        breakTimerElapsed = 0;
+        breakTimerStart = Date.now();
+        document
+          .getElementById("break-timer-display-wrapper")
+          .classList.remove("hidden");
+        document.getElementById("btn-break-timer").disabled = true;
+        document.getElementById("btn-break-timer").classList.add("opacity-50");
+        updateBreakTimerDisplay();
+        if (breakTimerInterval) clearInterval(breakTimerInterval);
+        breakTimerInterval = setInterval(() => {
+          const now = Date.now();
+          breakTimerElapsed = (now - breakTimerStart) / 1000;
+          if (breakTimerElapsed >= breakTimerTargetSec) {
+            endBreakTimer(true);
+            playNotificationSound();
+          } else {
+            updateBreakTimerDisplay();
+          }
+        }, 100);
+      }
+
+      function updateBreakTimerDisplay() {
+        const remaining = Math.max(0, breakTimerTargetSec - breakTimerElapsed);
+        const m = Math.floor(remaining / 60);
+        const s = Math.floor(remaining % 60);
+        document.getElementById("break-timer-display").innerText =
+          `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+      }
+
+      function endBreakTimer(autoEnded = false) {
+        if (breakTimerInterval) {
+          clearInterval(breakTimerInterval);
+          breakTimerInterval = null;
+        }
+        let s = sessionsList.find((x) => x.id === currentSessionId);
+        if (s) {
+          s.breakSec = (s.breakSec || 0) + Math.floor(breakTimerElapsed);
+        }
+        breakTimerElapsed = 0;
+        breakTimerTargetSec = 0;
+        document
+          .getElementById("break-timer-display-wrapper")
+          .classList.add("hidden");
+        document.getElementById("btn-break-timer").disabled = false;
+        document
+          .getElementById("btn-break-timer")
+          .classList.remove("opacity-50");
+        document.getElementById("break-minutes-input").value = "";
+      }
 
       function toggleTimerPause() {
         workPaused = !workPaused;
@@ -1946,21 +2098,20 @@
       async function holdSessionAndSwitch() {
         if (workInterval) clearInterval(workInterval);
         workInterval = null;
+        if (breakTimerInterval) endBreakTimer();
 
         let s = sessionsList.find((x) => x.id === currentSessionId);
         if (s) {
-          // Save elapsed time
           s.actualSec = Math.floor(workElapsedSec);
+          s.breakSec = s.breakSec || 0;
+          s.distractionCount = distractionCount;
 
-          // Save start audio if present
           const aSrc = document.getElementById("audio-preview-start").src;
           if (aSrc && aSrc.startsWith("blob:")) {
             try {
               const res = await fetch(aSrc);
               s.startAudioBlob = await res.blob();
-            } catch (e) {
-              /* ignore */
-            }
+            } catch (e) {}
           }
           await dbTx("sessions", "readwrite", (store) => store.put(s));
         }
@@ -1973,11 +2124,14 @@
       function completeWorkSession() {
         if (workInterval) clearInterval(workInterval);
         workInterval = null;
+        if (breakTimerInterval) endBreakTimer();
 
         let s = sessionsList.find((x) => x.id === currentSessionId);
         if (s) {
           s.actualSec = Math.floor(workElapsedSec);
-          // Save audio
+          s.breakSec = s.breakSec || 0;
+          s.distractionCount = distractionCount;
+
           const aSrc = document.getElementById("audio-preview-start").src;
           if (aSrc && aSrc.startsWith("blob:")) {
             fetch(aSrc)
@@ -1991,8 +2145,6 @@
         }
 
         switchView("step-reflection");
-
-        // Break timer — timestamp-based
         breakElapsedSec = 0;
         breakStartTime = Date.now();
         updateLiveBreakDisplay();
@@ -2173,7 +2325,7 @@
         if (!s) return;
 
         s.completed = true;
-        s.breakSec = Math.floor(breakElapsedSec);
+        s.breakSec = (s.breakSec || 0) + Math.floor(breakElapsedSec);
 
         // Capture final audio blobs from UI or session
         let blobStart = s.startAudioBlob || null;
@@ -2206,6 +2358,7 @@
           targetMins: s.durationMins,
           actualMins: Math.floor(s.actualSec / 60),
           breakMins: Math.floor(s.breakSec / 60),
+          distractionCount: s.distractionCount || 0,
           startAudio: blobStart,
           reflectionAudio: blobRef,
           status: "completed",
@@ -2640,6 +2793,8 @@
             for (let s of sessionsList) {
               if (!s.completed && s.actualSec > 0) {
                 s.actualSec = 0;
+                s.breakSec = 0;
+                s.distractionCount = 0;
                 s.startAudioBlob = null;
                 await dbTx("sessions", "readwrite", (store) => store.put(s));
               }
@@ -2921,6 +3076,45 @@
           }
           grid.innerHTML += `<div class="${classNames}">${i}</div>`;
         }
+        await renderDistractionAnalytics(hist, filter);
+      }
+      async function renderDistractionAnalytics(hist, filter) {
+        const container = document.getElementById(
+          "distraction-analytics-content",
+        );
+        if (!container) return;
+
+        let filtered = hist.filter(
+          (h) => h.status === "completed" && (h.distractionCount || 0) > 0,
+        );
+        if (filter !== "ALL")
+          filtered = filtered.filter((h) => String(h.actionId) === filter);
+
+        if (filtered.length === 0) {
+          container.innerHTML = `<div class="text-xs text-rose-600">No distractions recorded. Stay focused! 🎯</div>`;
+          return;
+        }
+
+        const byAction = {};
+        let total = 0;
+        filtered.forEach((h) => {
+          const key = h.actionId ? h.title : "Direct Sessions";
+          if (!byAction[key]) byAction[key] = { count: 0, sessions: 0 };
+          byAction[key].count += h.distractionCount || 0;
+          byAction[key].sessions += 1;
+          total += h.distractionCount || 0;
+        });
+
+        let html = `<div class="text-xs font-bold text-rose-800 mb-2">Total: ${total} distraction${total !== 1 ? "s" : ""}</div><div class="space-y-1.5">`;
+        Object.entries(byAction).forEach(([name, data]) => {
+          html += `
+            <div class="flex justify-between items-center bg-white rounded-lg px-3 py-2 border border-rose-100">
+              <span class="text-xs font-semibold text-slate-700 truncate">${name}</span>
+              <span class="text-xs font-bold text-rose-600">${data.count} (${data.sessions} sess.)</span>
+            </div>`;
+        });
+        html += `</div>`;
+        container.innerHTML = html;
       }
 
       function changeCalMonth(dir) {
@@ -3154,7 +3348,6 @@
       }
 
       function goHome() {
-        // Clean up timers
         if (workInterval) {
           clearInterval(workInterval);
           workInterval = null;
@@ -3162,6 +3355,10 @@
         if (breakInterval) {
           clearInterval(breakInterval);
           breakInterval = null;
+        }
+        if (breakTimerInterval) {
+          clearInterval(breakTimerInterval);
+          breakTimerInterval = null;
         }
         renderTodoList();
         switchView("tab-todo");
